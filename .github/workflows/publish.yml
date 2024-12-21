@@ -1,7 +1,10 @@
 name: Publish to NPM
 on:
-  release:
-    types: [created]
+  push:
+    branches:
+      - main
+    tags:
+      - 'v*.*.*'
 
 jobs:
   build:
@@ -12,7 +15,7 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
+          fetch-depth: 0 	# Fetch all history for proper version bumping
 
       - name: Setup Node
         uses: actions/setup-node@v4
