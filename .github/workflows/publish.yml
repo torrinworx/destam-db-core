@@ -8,13 +8,24 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '21'
           registry-url: 'https://registry.npmjs.org'
+    
+      - name: Get the version from the release tag
+        id: extract_version
+        run: echo "::set-output name=version::${GITHUB_REF##*/}"
+
+      - name: Set version in package.json
+        run: |
+          npm version ${{ steps.extract_version.outputs.version }} --no-git-tag-version
+
       - name: Install dependencies
         run: npm ci
+
       - name: Publish package
         run: npm publish
         env:
