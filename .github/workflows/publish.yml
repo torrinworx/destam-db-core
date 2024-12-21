@@ -11,17 +11,13 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history to access tags
+          fetch-depth: 0
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '21'
           registry-url: 'https://registry.npmjs.org'
-
-      - name: Remove version script to prevent npm publish from altering git
-        run: |
-          npm pkg delete scripts.version
 
       - name: Extract Version from Tag
         id: extract_version
