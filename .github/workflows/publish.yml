@@ -1,0 +1,44 @@
+name: Publish to npm
+
+on:
+	push:
+		branches:
+			- main
+
+jobs:
+	publish:
+		runs-on: ubuntu-latest
+
+		steps:
+			- name: Checkout repository
+				uses: actions/checkout@v4
+
+			- name: Set up Node.js
+				uses: actions/setup-node@v4
+				with:
+					node-version: '21'
+					registry-url: 'https://registry.npmjs.org/'
+
+			- name: Configure npm for authentication
+				run: echo "//registry.npmjs.org/:_authToken=${{ secrets.NPM_TOKEN }}" > ~/.npmrc
+
+			- name: Install dependencies
+				run: npm install
+
+			- name: Run version bump
+				run: npm version patch
+				env:
+					GITHUB_TOKEN: ${{ secrets.TOKEN }}
+
+			- name: Publish to npm
+				run: npm publish
+				env:
+					NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+				
+			- name: Push changes
+				run: |
+					git config --local user.email "action@github.com"
+					git config --local user.name "GitHub Action"
+					git push origin main --follow-tags
+				env:
+					GITHUB_TOKEN: ${{ secrets.TOKEN }}
