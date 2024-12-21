@@ -7,5 +7,11 @@
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Torrin Z. Leonard",
-  "license": "MIT"
+  "license": "MIT",
+  "dependencies": {
+    "destam": "^0.4.0"
+  },
+  "optionalDependencies": {
+    "mongodb": "^6.12.0"
+  }
 }
