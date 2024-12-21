@@ -1,52 +1,46 @@
 name: Publish to NPM
+
 on:
   release:
-    types: [created]
+    types: [created, published]
 
 jobs:
-  build:
+  publish:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
     steps:
-      - name: Checkout
+      - name: Checkout repository
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Fetch all history for proper version bumping
+          fetch-depth: 0  # Fetch all history to access tags
 
-      - name: Setup Node
+      - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '21'
           registry-url: 'https://registry.npmjs.org'
 
-      - name: Ensure Clean Working Directory
-        run: git reset --hard
+      - name: Remove version script to prevent npm publish from altering git
+        run: |
+          npm pkg delete scripts.version
 
-      - name: Check Git Status Before Bump
-        run: git status
+      - name: Extract Version from Tag
+        id: extract_version
+        run: |
+          TAG_VERSION=${GITHUB_REF#refs/tags/v}
+          echo "VERSION=$TAG_VERSION" >> $GITHUB_ENV
 
-      - name: Display Current Package Version
-        run: grep '"version"' package.json
+      - name: Update package.json Version
+        run: |
+          npm pkg set version=${{ env.VERSION }}
 
-      - name: Automated Version Bump
-        uses: phips28/gh-action-bump-version@v11.0.7
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          commit-message: 'CI: bumps version to {{version}} [skip ci]'
-          tag-prefix: 'v'
+      - name: Verify package.json Version
+        run: |
+          grep "\"version\": \"${{ env.VERSION }}\"" package.json
 
-      - name: Check Git Status After Bump
-        run: git status
-
-      - name: Display Updated Package Version
-        run: grep '"version"' package.json
-
-      - name: Install dependencies
+      - name: Install Dependencies
         run: npm ci
 
-      - name: Publish package
+      - name: Publish to NPM
         run: npm publish
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}

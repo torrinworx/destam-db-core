@@ -1,6 +1,6 @@
 {
   "name": "db-core",
-  "version": "1.0.1",
+  "version": "1.0.0",
   "description": "An observer based state storage abstraction for destam/web-core.",
   "main": "index.js",
   "scripts": {
