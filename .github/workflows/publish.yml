@@ -1,34 +1,35 @@
 name: Publish to NPM
 on:
-	release:
-		types: [created]
+  release:
+    types: [created]
+
 jobs:
-	build:
-		runs-on: ubuntu-latest
-		permissions:
-			contents: write
-		steps:
-			- name: Checkout
-				uses: actions/checkout@v4
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
 
-			- name: Setup Node
-				uses: actions/setup-node@v4
-				with:
-					node-version: '21'
-					registry-url: 'https://registry.npmjs.org'
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+          registry-url: 'https://registry.npmjs.org'
 
-			- name: Automated Version Bump
-				uses: phips28/gh-action-bump-version@v11.0.7
-				env:
-					GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-				with:
-					commit-message: 'CI: bumps version to {{version}} [skip ci]'
-					tag-prefix: 'v'
+      - name: Automated Version Bump
+        uses: phips28/gh-action-bump-version@v11.0.7
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          commit-message: 'CI: bumps version to {{version}} [skip ci]'
+          tag-prefix: 'v'
 
-			- name: Install dependencies
-				run: npm ci
+      - name: Install dependencies
+        run: npm ci
 
-			- name: Publish package
-				run: npm publish
-				env:
-					NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+      - name: Publish package
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
