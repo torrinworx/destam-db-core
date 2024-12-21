@@ -31,7 +31,7 @@ jobs:
             - name: Run version bump
               run: npm version patch -m "Upgrade to %s [skip ci]"
               env:
-                  GITHUB_TOKEN: ${{ secrets.TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
             - name: Publish to npm
               run: npm publish
@@ -44,4 +44,4 @@ jobs:
                   git config --local user.name "GitHub Action"
                   git push origin main --follow-tags
               env:
-                  GITHUB_TOKEN: ${{ secrets.TOKEN }}
+                  GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
