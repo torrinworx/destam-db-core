@@ -1,10 +1,7 @@
 name: Publish to NPM
 on:
-  push:
-    branches:
-      - main
-    tags:
-      - 'v*.*.*'
+  release:
+    types: [created]
 
 jobs:
   build:
@@ -15,13 +12,22 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0 	# Fetch all history for proper version bumping
+          fetch-depth: 0  # Fetch all history for proper version bumping
 
       - name: Setup Node
         uses: actions/setup-node@v4
         with:
           node-version: '21'
           registry-url: 'https://registry.npmjs.org'
+
+      - name: Ensure Clean Working Directory
+        run: git reset --hard
+
+      - name: Check Git Status Before Bump
+        run: git status
+
+      - name: Display Current Package Version
+        run: grep '"version"' package.json
 
       - name: Automated Version Bump
         uses: phips28/gh-action-bump-version@v11.0.7
@@ -30,6 +36,12 @@ jobs:
         with:
           commit-message: 'CI: bumps version to {{version}} [skip ci]'
           tag-prefix: 'v'
+
+      - name: Check Git Status After Bump
+        run: git status
+
+      - name: Display Updated Package Version
+        run: grep '"version"' package.json
 
       - name: Install dependencies
         run: npm ci
