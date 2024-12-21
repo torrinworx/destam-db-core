@@ -4,8 +4,7 @@
   "description": "An observer based state storage abstraction for destam/web-core.",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "version": "npm version patch -m \"Upgrade to %s [skip ci]\""
+    "test": "echo \"Error: no test specified\" && exit 1"
   },
   "author": "Torrin Z. Leonard <torrin@worx4you.com> (https://torrinleonard.com/)",
   "license": "MIT",
