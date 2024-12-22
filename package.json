@@ -3,6 +3,7 @@
   "version": "1.0.0",
   "description": "An observer based state storage abstraction for destam/web-core.",
   "main": "index.js",
+  "type": "module",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1"
   },
