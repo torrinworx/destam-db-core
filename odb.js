@@ -56,7 +56,7 @@ export const initODB = async () => {
 				throw new Error('No default export found.');
 			}
 		} catch (error) {
-			console.warn(`Driver for ${driverName} wasn't mounted: ${error.message}. If you need this driver, check its setup is correct.`);
+			console.warn(`Driver for ${driverName} wasn't mounted:\n${error.message}\n If you need this driver, check its setup is correct.`);
 		}
 	}
 };
