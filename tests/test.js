@@ -57,7 +57,7 @@ test("success on valid data", async () => {
 	expect(result).to.be.an('object');
 });
 
-test("ODB handles updates with validation", async () => {
+test("updates with validation", async () => {
 	const result = await ODB('mongodb', 'testSuccess', {}, OObject({
 		requiredField: 'Initial value'
 	}));
