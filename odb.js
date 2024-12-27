@@ -22,6 +22,39 @@ import { parse } from './clone.js';
 const isClient = typeof window !== 'undefined';
 let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
 
+const collectionValidators = {};
+
+/**
+ * Registers a validation schema for a specific collection.
+ * @param {string} collection - The name of the collection.
+ * @param {Object} schema - The validation schema.
+ */
+export const validator = (collection, schema) => {
+	collectionValidators[collection] = schema;
+};
+
+/**
+ * Validates data against the registered schema for a collection.
+ * @param {string} collection - The name of the collection.
+ * @param {Object} data - The data to validate.
+ * @throws Will throw an error if validation fails.
+ */
+const validateData = async (collection, data) => {
+	const schema = collectionValidators[collection];
+	if (!schema) return;
+
+	for (const field in schema) {
+		if (!(field in data)) {
+			throw new Error(`Validation Error: Missing field '${field}' in collection '${collection}'.`);
+		}
+		const { validate, message } = schema[field];
+		const isValid = await validate(data[field]);
+		if (!isValid) {
+			throw new Error(`Validation Error: ${message} - ${data[field]}`);
+		}
+	}
+};
+
 export const initODB = async () => {
 	const basePath = isClient ? './drivers/client/' : './drivers/server/';
 
@@ -66,19 +99,37 @@ The goal of ODB is to get rid of the confusing of when to create, search, update
 an underlying storage method. This abstracts that confusion and will prevent developer errors from
 increasing complexity in applications.
 
+driver: the storage method used to save state.
 collection: collection name to search for the document.
 query: query to search for the correct document within the specified collection.
 value: the default value of the doucment if no query is specified and creating a new document.
 */
 export const ODB = async (driver, collection, query, value = OObject({})) => {
-	driver = drivers[driver]
-	const { state_tree, id } = await driver.init(collection, query, value)
+	driver = drivers[driver];
+
+	try {
+		await validateData(collection, value);
+	} catch (error) {
+		console.error(error.message);
+		return false;
+	}
+
+	const { state_tree, id } = await driver.init(collection, query, value);
 
 	if (state_tree) {
 		const state = parse(JSON.stringify(state_tree));
+
 		state.observer.watch(async () => {
-			await driver.update(collection, id, state)
+			try {
+				await validateData(collection, state);
+				await driver.update(collection, id, state);
+			} catch (error) {
+				console.error(error.message);
+			}
 		});
+
 		return state;
-	} else return false;
+	} else {
+		return false;
+	}
 };
