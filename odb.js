@@ -22,7 +22,7 @@ import { parse } from './clone.js';
 const isClient = typeof window !== 'undefined';
 let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
 
-const collectionValidators = {};
+export const collectionValidators = {};
 
 /**
  * Registers a validation schema for a specific collection.
@@ -54,9 +54,10 @@ const validateData = async (collection, data) => {
 		}
 	}
 };
-
-export const initODB = async () => {
+// Props are a way to send specific parameters to drivers on startup
+export const initODB = async (props) => {
 	const basePath = isClient ? './drivers/client/' : './drivers/server/';
+	const initStatus = {};
 
 	for (const driverName in drivers) {
 		try {
@@ -76,7 +77,7 @@ export const initODB = async () => {
 			}
 
 			if (module && module.default) {
-				let driverInstance = module.default();
+				let driverInstance = module.default(props);
 
 				if (driverInstance instanceof Promise) {
 					driverInstance = await driverInstance;
@@ -85,13 +86,16 @@ export const initODB = async () => {
 				drivers[driverName] = driverInstance;
 
 				console.log(`${driverName} driver mounted.`);
+				initStatus[driverName] = true;
 			} else {
 				throw new Error('No default export found.');
 			}
 		} catch (error) {
 			console.warn(`Driver for ${driverName} wasn't mounted:\n${error.message}\n If you need this driver, check its setup is correct.`);
+			initStatus[driverName] = false;
 		}
 	}
+	return initStatus;
 };
 
 /*
@@ -103,8 +107,9 @@ driver: the storage method used to save state.
 collection: collection name to search for the document.
 query: query to search for the correct document within the specified collection.
 value: the default value of the doucment if no query is specified and creating a new document.
+props: extra properties that can be sent to the driver that are driver specific 
 */
-export const ODB = async (driver, collection, query, value = OObject({})) => {
+export const ODB = async (driver, collection, query, value = OObject({}), props) => {
 	driver = drivers[driver];
 
 	try {
@@ -114,7 +119,7 @@ export const ODB = async (driver, collection, query, value = OObject({})) => {
 		return false;
 	}
 
-	const { state_tree, id } = await driver.init(collection, query, value);
+	const { state_tree, id } = await driver.init(collection, query, value, props);
 
 	if (state_tree) {
 		const state = parse(JSON.stringify(state_tree));
@@ -122,7 +127,7 @@ export const ODB = async (driver, collection, query, value = OObject({})) => {
 		state.observer.watch(async () => {
 			try {
 				await validateData(collection, state);
-				await driver.update(collection, id, state);
+				await driver.update(collection, id, state, props);
 			} catch (error) {
 				console.error(error.message);
 			}
