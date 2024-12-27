@@ -1,10 +1,13 @@
 import { config } from 'dotenv';
 import { MongoClient } from 'mongodb';
+import { MongoMemoryServer } from 'mongodb-memory-server';
 
 import { stringify } from '../../clone.js';
 
 config();
 
+
+// TODO: Move this to a common file not specific to drivers and remove from ./indexeddb.js to avoid duplication:
 /**
  * Creates a database document from an observer state value.
  * @param {Object} value - The observer state value.
@@ -30,18 +33,39 @@ const transformQueryKeys = (query) => {
     return transformedQuery;
 };
 
-export default async () => {
-    const dbURL = process.env.DB;
-    const dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
+export default async ({ test = false }) => {
+    let dbClient;
+    let db;
 
-    try {
-        await dbClient.connect();
-        console.log('\x1b[32mConnected to mongodb\x1b[0m');
-    } catch (error) {
-        console.error('Failed to connect to MongoDB:', error);
-        process.exit(1);
+    if (test) {
+        const mongoServer = await MongoMemoryServer.create();
+        const dbURL = mongoServer.getUri();
+        dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
+
+        try {
+            await dbClient.connect();
+            console.log('\x1b[32mConnected to in-memory mongodb\x1b[0m');
+        } catch (error) {
+            console.error('Failed to connect to in-memory MongoDB:', error);
+            process.exit(1);
+        }
+
+        db = dbClient.db('webcore');
+    } else {
+        const dbURL = process.env.DB;
+        dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
+
+        try {
+            await dbClient.connect();
+            console.log('\x1b[32mConnected to mongodb\x1b[0m');
+        } catch (error) {
+            console.error('Failed to connect to MongoDB:', error);
+            process.exit(1);
+        }
+
+        db = dbClient.db('webcore');
     }
-    const db = dbClient.db('webcore');
+
 
     return {
         /*

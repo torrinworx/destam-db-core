@@ -1,73 +1,79 @@
 import test from 'node:test';
 import { expect } from 'chai';
-
 import { OObject } from "destam";
-import { initODB, ODB, validator } from "../odb.js";
+import { initODB, ODB, validator, collectionValidators } from "../odb.js";
 
-// ODB tests
+test("initialize ODB drivers", async () => {
+	const initStatus = await initODB({ test: true });
+	for (const driverName in initStatus) {
+		if (initStatus[driverName]) {
+			console.log(`${driverName} initialized successfully.`);
+		} else {
+			console.log(`${driverName} failed to initialize.`);
+		}
+		expect(initStatus[driverName]).to.be.a('boolean');
+	}
 
-test("", () => {
-	let state;
+	expect(initStatus.mongodb).to.equal(true);
+});
 
-	
-})
+test("validator registration", () => {
+	validator('testCollection', {
+		field: {
+			validate: (value) => typeof value === 'number',
+			message: "Field must be a number.",
+		}
+	});
+	expect(collectionValidators).to.have.property('testCollection');
+});
 
-(async () => {
-	await initODB();
-
-	validator('test', {
-		email: {
-			validate: (value) => typeof value === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value),
-			message: "Invalid email format.",
-		},
-		password: {
-			validate: (value) => typeof value === 'string' && value.length >= 6,
-			message: "Password must be at least 6 characters long.",
-		},
-		username: {
-			validate: (value) => typeof value === 'string' && value.trim().length > 0,
-			message: "Username cannot be empty.",
-		},
+test("failure on validation error", async () => {
+	validator('testFail', {
+		requiredField: {
+			validate: (value) => typeof value === 'string',
+			message: "Field must be a string.",
+		}
 	});
 
-	let test;
+	const result = await ODB('mongodb', 'testFail', {}, OObject({
+		requiredField: 123
+	}));
+
+	expect(result).to.equal(false);
+});
+
+test("success on valid data", async () => {
+	validator('testSuccess', {
+		requiredField: {
+			validate: (value) => typeof value === 'string',
+			message: "Field must be a string.",
+		}
+	});
+
+	const result = await ODB('mongodb', 'testSuccess', {}, OObject({
+		requiredField: 'A valid string'
+	}));
+
+	expect(result).to.be.an('object');
+});
+
+test("ODB handles updates with validation", async () => {
+	const result = await ODB('mongodb', 'testSuccess', {}, OObject({
+		requiredField: 'Initial value'
+	}));
 
 	try {
-		// Should fail:
-		test = await ODB('mongodb', 'test', {}, OObject({
-			email: true,
-			password: 123123,
-			username: ['injection attack!']
-		}));
-		console.log(test); // Expected: false
+		// Invalid update
+		result.requiredField = 123;
 	} catch (error) {
-		console.error("Failed to create invalid test document:", error.message);
+		expect(error.message).to.include("Field must be a string.");
 	}
 
 	try {
-		// Should work:
-		test = await ODB('mongodb', 'test', {}, OObject({
-			email: 'test@example.com',
-			password: '1234password',
-			username: 'test'
-		}));
-		console.log(test); // Expected: Valid State Object
+		// Valid update
+		result.requiredField = 'Updated value';
+		expect(result.requiredField).to.equal('Updated value');
 	} catch (error) {
-		console.error("Failed to create valid test document:", error.message);
+		console.error("Unexpected validation error:", error.message);
 	}
-
-	// Testing further modification:
-	try {
-		test.email = 0.00001; // Should trigger validation
-		console.log(test);
-	} catch (error) {
-		console.error("Failed to update email:", error.message);
-	}
-
-	try {
-		test.email = 'test2@example.com'; // Should pass validation
-		console.log(test);
-	} catch (error) {
-		console.error("Failed to update email:", error.message);
-	}
-})();
+});
