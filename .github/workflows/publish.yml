@@ -5,45 +5,44 @@ on:
     workflows: ["Run tests"]
     types:
       - completed
-      
+
 jobs:
-      publish:
-        if: |
-        contains(github.event.workflow_run.head_commit.message, 'refs/tags/') &&
-        github.event.workflow_run.conclusion == 'success'
-        runs-on: ubuntu-latest
-        steps:
-          - name: Checkout repository
-          uses: actions/checkout@v4
-          with:
-            fetch-depth: 0
-            
-            - name: Setup Node.js
-            uses: actions/setup-node@v4
-            with:
-              node-version: '21'
-              registry-url: 'https://registry.npmjs.org'
-              
-              - name: Extract Version from Tag
-              id: extract_version
-              run: |
-              TAG_NAME=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')
-              TAG_VERSION=${TAG_NAME#v}
-              echo "VERSION=$TAG_VERSION" >> $GITHUB_ENV
-              
-              - name: Update package.json Version
-              run: |
-              npm pkg set version=${{ env.VERSION }}
-              
-              - name: Verify package.json Version
-              run: |
-              grep "\"version\": \"${{ env.VERSION }}\"" package.json
-              
-              - name: Install Dependencies
-              run: npm ci
-              
-              - name: Publish to NPM
-              run: npm publish
-              env:
-                NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-                
+  publish:
+    if: |
+      startsWith(github.event.workflow_run.head_commit.message, 'refs/tags/') &&
+      github.event.workflow_run.conclusion == 'success'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '21'
+          registry-url: 'https://registry.npmjs.org'
+
+      - name: Extract Version from Tag
+        id: extract_version
+        run: |
+          TAG_NAME=$(echo ${{ github.ref }} | sed 's/refs\/tags\///')
+          TAG_VERSION=${TAG_NAME#v}
+          echo "VERSION=$TAG_VERSION" >> $GITHUB_ENV
+
+      - name: Update package.json Version
+        run: |
+          npm pkg set version=${{ env.VERSION }}
+
+      - name: Verify package.json Version
+        run: |
+          grep "\"version\": \"${{ env.VERSION }}\"" package.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Publish to NPM
+        run: npm publish
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
