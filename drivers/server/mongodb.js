@@ -52,7 +52,7 @@ const transformQueryKeys = (query) => {
  * @param {boolean} [props.test=false] - Indicates whether to use an in-memory MongoDB server.
  * @returns {Promise<Object>} An object containing the init, update, and close methods for the driver.
  */
-export default async ({ test = false }) => {
+export default async ({ test = false } = {}) => {
     let dbClient;
     let db;
     let mongoServer;
