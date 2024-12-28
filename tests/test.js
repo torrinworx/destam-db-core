@@ -1,10 +1,14 @@
 import test from 'node:test';
 import { expect } from 'chai';
 import { OObject } from "destam";
-import { initODB, ODB, validator, collectionValidators } from "../odb.js";
+import { initODB, closeODB, ODB, validator, collectionValidators } from "../odb.js";
+
+let initStatus; 
+test.before(async () => {
+	initStatus = await initODB({ test: true });
+});
 
 test("initialize ODB drivers", async () => {
-	const initStatus = await initODB({ test: true });
 	for (const driverName in initStatus) {
 		if (initStatus[driverName]) {
 			console.log(`${driverName} initialized successfully.`);
@@ -75,5 +79,15 @@ test("updates with validation", async () => {
 		expect(result.requiredField).to.equal('Updated value');
 	} catch (error) {
 		console.error("Unexpected validation error:", error.message);
+	}
+});
+
+test.after(async () => {
+	try {
+		await closeODB();
+		console.log("Drivers closed successfully.");
+	} catch (error) {
+		console.error("Error closing drivers:", error);
+		throw error;
 	}
 });
