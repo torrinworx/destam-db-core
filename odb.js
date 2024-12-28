@@ -1,22 +1,24 @@
 /*
-Serves as a data storage abstraction with multiple methods of storing observers, ODB supports storage,
+Serves as a data storage abstraction with multiple methods of storing observers. ODB supports storage,
 and querying of data. ODB has collections, each collection contains a list of documents. These documents
-contain the data you wish to store.
+contain the JSON/Object data you wish to store.
 
-Each document has it's own uuid. This is included in the document stored in the drivers method regardless
-of it's underlying tracking methods, this is for concistency accross driver methods.
+Each document has its own UUID. This is included in the document stored in the driver's method regardless
+of its underlying tracking methods, ensuring consistency across driver methods.
 
-db types:
-- mongodb => wrapper for mongodb
-- indexddb => wrapper for indexddb, meant for storing stuff in the browser
-- fs => handle data storage directly on files
-- s3 => storing in s3 buckets
+DB types:
+- mongodb => Wrapper for MongoDB.
+- indexeddB => Wrapper for IndexedDB, meant for storing data in the browser.
+TODO:
+- fs => Handles data storage directly on files.
+- s3 => Stores data in S3 buckets.
 
 Each driver has a set of functions:
-init() => initializes the individual ODB instances that is used within the application.
-update() => Takes a document id and updates it to the provided value.
-close() => stops all async processes and connections.
+- init() => Initializes the individual ODB instances used within the application.
+- update() => Takes a document ID and updates it to the provided value.
+- close() => Stops all async processes and connections.
 */
+
 import { OObject } from 'destam';
 import { parse } from './clone.js';
 
@@ -27,6 +29,7 @@ export const collectionValidators = {};
 
 /**
  * Registers a validation schema for a specific collection.
+ *
  * @param {string} collection - The name of the collection.
  * @param {Object} schema - The validation schema.
  */
@@ -36,9 +39,10 @@ export const validator = (collection, schema) => {
 
 /**
  * Validates data against the registered schema for a collection.
+ *
  * @param {string} collection - The name of the collection.
- * @param {Object} data - The data to validate.
- * @throws Will throw an error if validation fails.
+ * @param {Object} data - The Json/Object data to validate.
+ * @throws {Error} Throws an error if validation fails.
  */
 const validateData = async (collection, data) => {
 	const schema = collectionValidators[collection];
@@ -56,7 +60,12 @@ const validateData = async (collection, data) => {
 	}
 };
 
-// Props are a way to send specific parameters to drivers on startup
+/**
+ * Initializes the ODB by loading and setting up the appropriate drivers.
+ *
+ * @param {Object} props - Properties to send to drivers on startup.
+ * @returns {Object} An object representing the initialization status of each driver.
+ */
 export const initODB = async (props) => {
 	const basePath = isClient ? './drivers/client/' : './drivers/server/';
 	const initStatus = {};
@@ -102,14 +111,17 @@ export const initODB = async (props) => {
 
 /**
  * Closes all ODB drivers and cleans up connections.
+ *
+ * @param {Object} props - Properties to send to drivers on close.
+ * @returns {Promise<void>} Resolves when all drivers and watchers are closed.
  */
-export const closeODB = async () => {
+export const closeODB = async (props) => {
 	// Close drivers
 	for (const driverName in drivers) {
 		const driver = drivers[driverName];
 		if (driver.close) {
 			try {
-				await driver.close();
+				await driver.close(props);
 				console.log(`${driverName} driver closed.`);
 			} catch (error) {
 				console.error(`Failed to close ${driverName} driver:`, error);
@@ -131,17 +143,18 @@ export const closeODB = async () => {
 	drivers = {};
 };
 
-/*
-The goal of ODB is to get rid of the confusion of when to create, search, update, and delete data in 
-an underlying storage method. This abstracts that confusion and will prevent developer errors from
-increasing complexity in applications.
-
-driver: the storage method used to save state.
-collection: collection name to search for the document.
-query: query to search for the correct document within the specified collection.
-value: the default value of the document if no query is specified and creating a new document.
-props: extra properties that can be sent to the driver that are driver specific 
-*/
+/**
+ * Abstraction for data storage operations, handling creation, retrieval, updating, and deletion
+ * of documents across different storage drivers.
+ *
+ * @param {string} driver - The storage method used to save state.
+ * @param {string} collection - The collection name to search for the document.
+ * @param {Object} query - The query to search for the correct document within the specified collection.
+ * @param {Object} [value=OObject({})] - The default value of the document, if no query is specified a new document is created.
+ * @param {Object} [props] - Extra driver-specific properties.
+ * @returns {Promise<Object|boolean>} Returns the state object if successful, or false if validation fails.
+ * @throws {Error} Throws an error if validation fails.
+ */
 export const ODB = async (driver, collection, query, value = OObject({}), props) => {
 	driver = drivers[driver];
 
