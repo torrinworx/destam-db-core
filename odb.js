@@ -15,13 +15,14 @@ db types:
 Each driver has a set of functions:
 init() => initializes the individual ODB instances that is used within the application.
 update() => Takes a document id and updates it to the provided value.
+close() => stops all async processes and connections.
 */
 import { OObject } from 'destam';
 import { parse } from './clone.js';
 
+const watchers = [];
 const isClient = typeof window !== 'undefined';
 let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
-
 export const collectionValidators = {};
 
 /**
@@ -54,6 +55,7 @@ const validateData = async (collection, data) => {
 		}
 	}
 };
+
 // Props are a way to send specific parameters to drivers on startup
 export const initODB = async (props) => {
 	const basePath = isClient ? './drivers/client/' : './drivers/server/';
@@ -98,15 +100,46 @@ export const initODB = async (props) => {
 	return initStatus;
 };
 
+/**
+ * Closes all ODB drivers and cleans up connections.
+ */
+export const closeODB = async () => {
+	// Close drivers
+	for (const driverName in drivers) {
+		const driver = drivers[driverName];
+		if (driver.close) {
+			try {
+				await driver.close();
+				console.log(`${driverName} driver closed.`);
+			} catch (error) {
+				console.error(`Failed to close ${driverName} driver:`, error);
+			}
+		}
+	}
+
+	// Cleanup ODB watchers
+	for (const watcher of watchers) {
+		try {
+			await watcher();
+			console.log(`Watcher closed.`);
+		} catch (error) {
+			console.error(`Failed to close watcher:`, error);
+		}
+	}
+
+	watchers.length = 0;
+	drivers = {};
+};
+
 /*
-The goal of ODB is to get rid of the confusing of when to create, search, update, and delete data in 
+The goal of ODB is to get rid of the confusion of when to create, search, update, and delete data in 
 an underlying storage method. This abstracts that confusion and will prevent developer errors from
 increasing complexity in applications.
 
 driver: the storage method used to save state.
 collection: collection name to search for the document.
 query: query to search for the correct document within the specified collection.
-value: the default value of the doucment if no query is specified and creating a new document.
+value: the default value of the document if no query is specified and creating a new document.
 props: extra properties that can be sent to the driver that are driver specific 
 */
 export const ODB = async (driver, collection, query, value = OObject({}), props) => {
@@ -124,7 +157,7 @@ export const ODB = async (driver, collection, query, value = OObject({}), props)
 	if (state_tree) {
 		const state = parse(JSON.stringify(state_tree));
 
-		state.observer.watch(async () => {
+		const watcher = state.observer.watch(async () => {
 			try {
 				await validateData(collection, state);
 				await driver.update(collection, id, state, props);
@@ -132,6 +165,8 @@ export const ODB = async (driver, collection, query, value = OObject({}), props)
 				console.error(error.message);
 			}
 		});
+
+		watchers.push(watcher);
 
 		return state;
 	} else {
