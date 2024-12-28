@@ -38,7 +38,8 @@ jobs:
         run: npm pkg set version=${{ env.VERSION }}
 
       - name: Verify package.json Version
-        run: grep '"version": "${{ env.VERSION }}"' package.json
+        run: |
+          grep "\"version\": \"${{ env.VERSION }}\"" package.json
 
       - name: Publish to NPM
         run: npm publish
