@@ -1,3 +1,4 @@
+// mongodb.js
 import { config } from 'dotenv';
 import { MongoClient } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
@@ -5,7 +6,6 @@ import { MongoMemoryServer } from 'mongodb-memory-server';
 import { stringify } from '../../clone.js';
 
 config();
-
 
 // TODO: Move this to a common file not specific to drivers and remove from ./indexeddb.js to avoid duplication:
 /**
@@ -36,9 +36,10 @@ const transformQueryKeys = (query) => {
 export default async ({ test = false }) => {
     let dbClient;
     let db;
+    let mongoServer;
 
     if (test) {
-        const mongoServer = await MongoMemoryServer.create();
+        mongoServer = await MongoMemoryServer.create();
         const dbURL = mongoServer.getUri();
         dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
 
@@ -65,7 +66,6 @@ export default async ({ test = false }) => {
 
         db = dbClient.db('webcore');
     }
-
 
     return {
         /*
@@ -111,6 +111,15 @@ export default async ({ test = false }) => {
                 }
             );
             return result;
+        },
+        close: async () => {
+            await dbClient.close();
+            if (mongoServer) {
+                await mongoServer.stop();
+                console.log('\x1b[32mDisconnected from MongoDB and stopped in-memory MongoDB\x1b[0m');
+            } else {
+                console.log('\x1b[32mDisconnected from MongoDB\x1b[0m');
+            }
         }
     };
 };
