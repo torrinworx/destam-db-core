@@ -47,17 +47,23 @@ export default async () => {
 			const store = transaction.objectStore(collectionName);
 			let dbDocument;
 
-			if (Object.keys(query).length === 0) {
+			const createDoc = async () => {
 				const stateDoc = createStateDoc(value);
 				const request = store.add(stateDoc);
-
 				const result = await new Promise((resolve, reject) => {
 					request.onsuccess = () => resolve(request.result);
 					request.onerror = () => reject('Error adding document');
 				});
+				return {
+					_id: result,
+					...stateDoc
+				};
+			};
 
-				dbDocument = { _id: result, ...stateDoc };
-			} else {
+			// No query, create doc
+			if (Object.keys(query).length === 0) {
+				dbDocument = await createDoc();
+			} else { // yes query, fetch doc
 				const transformedQuery = transformQueryKeys(query);
 				dbDocument = await new Promise((resolve, reject) => {
 					let found = false;
@@ -81,9 +87,12 @@ export default async () => {
 					store.onerror = () => reject('Error finding document');
 				});
 
-				if (!dbDocument) {
-					return false;
-				}
+				if (!dbDocument) { // no query result found
+                    if (!value) {
+                        return false; // return false if no query results or value
+                    }
+                    dbDocument = await createDoc(); // if no query results but value, create doc from value.
+                }
 			}
 
 			return { state_tree: dbDocument.state_tree, id: dbDocument._id };

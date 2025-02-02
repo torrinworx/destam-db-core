@@ -156,7 +156,7 @@ export const closeODB = async (props) => {
  * @returns {Promise<Object|boolean>} Returns the state object if successful, or false if validation fails.
  * @throws {Error} Throws an error if validation fails.
  */
-export const ODB = async (driver, collection, query, value = OObject({}), props) => {
+export const ODB = async (driver, collection, query, value = null, props) => {
 	driver = drivers[driver];
 
 	try {

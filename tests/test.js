@@ -53,7 +53,7 @@ test("success on valid data", async () => {
 			message: "Field must be a string.",
 		}
 	});
-
+	
 	const result = await ODB('mongodb', 'testSuccess', {}, OObject({
 		requiredField: 'A valid string'
 	}));

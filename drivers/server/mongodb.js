@@ -102,20 +102,29 @@ export default async ({ test = false } = {}) => {
             const collection = db.collection(collectionName);
             const transformedQuery = Object.keys(query).length === 0 ? query : transformQueryKeys(query);
 
-            // No query, create doc
-            if (Object.keys(transformedQuery).length === 0) {
+            const createDoc = async () => {
                 const stateDoc = createStateDoc(value);
                 const result = await collection.insertOne(stateDoc);
-                dbDocument = {
+                return {
                     _id: result.insertedId,
                     ...stateDoc
                 };
-            } else {
+            }
+
+            // No query, create doc
+            if (Object.keys(transformedQuery).length === 0) {
+                dbDocument = await createDoc();
+            } else { // yes query, fetch doc
                 dbDocument = await collection.findOne(transformedQuery);
-                if (!dbDocument) {
-                    return false;
+
+                if (!dbDocument) { // no query result found
+                    if (!value) {
+                        return false; // return false if no query results or value
+                    }
+                    dbDocument = await createDoc(); // if no query results but value, create doc from value.
                 }
             }
+
             return { state_tree: dbDocument.state_tree, id: dbDocument._id };
         },
 
