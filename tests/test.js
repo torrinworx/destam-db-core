@@ -82,6 +82,25 @@ test("updates with validation", async () => {
 	}
 });
 
+test("successful data querying", async () => {
+	const insertResult = await ODB('mongodb', 'testQuery', {}, OObject({
+		queryField: 'Queryable data'
+	}));
+
+	expect(insertResult).to.be.an('object');
+
+	const queryResult = await ODB('mongodb', 'testQuery', { queryField: 'Queryable data' });
+
+	expect(queryResult).to.be.an('object');
+	expect(Object.keys(queryResult)).to.have.length.of.at.least(1);
+	expect(queryResult).to.have.property('queryField', 'Queryable data');
+});
+
+test("query for non-existent data", async () => {
+	const queryResult = await ODB('mongodb', 'testQuery', { 'queryField': 'Non-existent data' });
+	expect(queryResult).to.equal(false);
+});
+
 test.after(async () => {
 	try {
 		await closeODB();
