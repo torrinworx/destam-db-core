@@ -19,8 +19,7 @@ Each driver has a set of functions:
 - close() => Stops all async processes and connections.
 */
 
-import { OObject } from 'destam';
-import { parse } from './clone.js';
+import { parse, stringify } from './clone.js';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
@@ -61,6 +60,19 @@ const validateData = async (collection, data) => {
 };
 
 /**
+ * Creates a database document from an observer state value.
+ *
+ * @param {Object} value - The observer state value.
+ * @returns {Object} The document containing a state tree and its simplified JSON version used for querying.
+ */
+const createStateDoc = (value) => {
+	return {
+		state_tree: JSON.parse(stringify(value)),
+		state_json: JSON.parse(JSON.stringify(value))
+	};
+};
+
+/**
  * Initializes the ODB by loading and setting up the appropriate drivers.
  *
  * @param {Object} props - Properties to send to drivers on startup.
@@ -88,7 +100,10 @@ export const initODB = async (props) => {
 			}
 
 			if (module && module.default) {
-				let driverInstance = module.default(props);
+				let driverInstance = module.default(
+					createStateDoc,
+					props
+				);
 
 				if (driverInstance instanceof Promise) {
 					driverInstance = await driverInstance;
@@ -157,6 +172,7 @@ export const closeODB = async (props) => {
  * @throws {Error} Throws an error if validation fails.
  */
 export const ODB = async (driver, collection, query, value = null, props) => {
+	// let state_tree, id;
 	driver = drivers[driver];
 
 	try {
@@ -165,6 +181,23 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		console.error(error.message);
 		return false;
 	}
+	if (driver.transformQuery) query = driver.transformQuery(query);
+
+	// if (!query || Object.keys(query).length === 0) {
+	// 	state_tree, id = await driver.insertDoc();
+	// } else {
+	// 	// modify query if driver needs.
+	// 	if (driver.transformQuery) query = driver.transformQuery(query);
+	// 	dbDocument = await collection.findOne(transformedQuery);
+
+	// 	if (!dbDocument) { // no query result found
+	// 		if (!value) {
+	// 			return false; // return false if no query results or value
+	// 		}
+	// 		dbDocument = await createDoc(); // if no query results but value, create doc from value.
+	// 	}
+	// }
+
 
 	const { state_tree, id } = await driver.init(collection, query, value, props);
 

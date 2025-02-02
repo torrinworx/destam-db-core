@@ -11,38 +11,7 @@ import { config } from 'dotenv';
 import { MongoClient } from 'mongodb';
 import { MongoMemoryServer } from 'mongodb-memory-server';
 
-import { stringify } from '../../clone.js';
-
 config();
-
-// TODO: Move this to a common file not specific to drivers and remove from ./indexeddb.js to avoid duplication:
-
-/**
- * Creates a database document from an observer state value.
- *
- * @param {Object} value - The observer state value.
- * @returns {Object} The document containing a state tree and its simplified JSON version used for querying.
- */
-const createStateDoc = (value) => {
-    return {
-        state_tree: JSON.parse(stringify(value)),
-        state_json: JSON.parse(JSON.stringify(value))
-    };
-};
-
-/**
- * Transforms the query keys to target the 'state_json' document field.
- *
- * @param {Object} query - The original query object.
- * @returns {Object} The transformed query object with keys prefixed by 'state_json.'.
- */
-const transformQueryKeys = (query) => {
-    const transformedQuery = {};
-    for (const key in query) {
-        transformedQuery[`state_json.${key}`] = query[key];
-    }
-    return transformedQuery;
-};
 
 /**
  * Initializes the MongoDB driver, connecting to either an in-memory server for testing
@@ -52,12 +21,12 @@ const transformQueryKeys = (query) => {
  * @param {boolean} [props.test=false] - Indicates whether to use an in-memory MongoDB server.
  * @returns {Promise<Object>} An object containing the init, update, and close methods for the driver.
  */
-export default async ({ test = false } = {}) => {
+export default async (createStateDoc, { test = false }) => { // TODO: switch test to .env ENV var or something
     let dbClient;
     let db;
     let mongoServer;
 
-    if (test) {
+    if (test) { // use in memory mongodb for tests
         mongoServer = await MongoMemoryServer.create();
         const dbURL = mongoServer.getUri();
         dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
@@ -98,34 +67,52 @@ export default async ({ test = false } = {}) => {
          * @returns {Promise<Object|boolean>} An object containing the state tree and document ID, or false if not found.
          */
         init: async (collectionName, query, value) => {
-            let dbDocument;
+            let state_tree, id;
             const collection = db.collection(collectionName);
-            const transformedQuery = Object.keys(query).length === 0 ? query : transformQueryKeys(query);
 
             const createDoc = async () => {
                 const stateDoc = createStateDoc(value);
                 const result = await collection.insertOne(stateDoc);
-                return {
-                    _id: result.insertedId,
-                    ...stateDoc
-                };
-            }
+                id = result.insertedId;
+                state_tree = stateDoc.state_tree;
+            };
 
             // No query, create doc
-            if (Object.keys(transformedQuery).length === 0) {
-                dbDocument = await createDoc();
+            if (Object.keys(query).length === 0) {
+                await createDoc();
             } else { // yes query, fetch doc
-                dbDocument = await collection.findOne(transformedQuery);
+                const result = await collection.findOne(query);
 
-                if (!dbDocument) { // no query result found
+                if (!result) { // no query result found
                     if (!value) {
                         return false; // return false if no query results or value
                     }
-                    dbDocument = await createDoc(); // if no query results but value, create doc from value.
+                    await createDoc(); // if no query results but value, create doc from value.
+                } else {
+                    state_tree = result.state_tree;
+                    id = result._id;
                 }
             }
 
-            return { state_tree: dbDocument.state_tree, id: dbDocument._id };
+            return { state_tree, id };
+        },
+
+        fetchDoc: async (query) => {
+        },
+
+        insertDoc: async (value) => {
+        },
+
+        /**
+         * Transforms the query keys to target the 'state_json' document field.
+         *
+         * @param {Object} query - The original query object.
+         * @returns {Object} The transformed query object with keys prefixed by 'state_json.'.
+         */
+        transformQuery: (query) => {
+            return Object.fromEntries(
+                Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
+            );
         },
 
         /**

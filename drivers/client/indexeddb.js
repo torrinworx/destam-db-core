@@ -1,6 +1,5 @@
-import { stringify } from '../../clone';
 
-export default async () => {
+export default async (createStateDoc) => {
 	const dbName = 'webcore';
 	const dbVersion = 1;
 	let db;
@@ -23,13 +22,6 @@ export default async () => {
 				reject('Failed to open IndexedDB');
 			};
 		});
-	};
-
-	const createStateDoc = (value) => {
-		return {
-			state_tree: JSON.parse(stringify(value)),
-			state_json: JSON.parse(JSON.stringify(value))
-		};
 	};
 
 	const transformQueryKeys = (query) => {
