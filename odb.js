@@ -138,7 +138,7 @@ export const closeODB = async (props) => {
  * @returns {Promise<Object|boolean>} Returns the state object if successful, or false if validation fails.
  * @throws {Error} Throws an error if validation fails.
  */
-export const ODB = async (driver, collection, query, value = null, props) => {	
+export const ODB = async (driver, collection, query, value = null, props) => {
 	driver = drivers[driver];
 
 	try {
@@ -147,9 +147,9 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		console.error(error.message);
 		return false;
 	}
-	
+
 	if (driver.transformQuery) query = driver.transformQuery(query);
-	
+
 	let doc;
 	if (Object.keys(query).length === 0) { // No query, create doc
 		doc = await driver.insert(collection, value);
@@ -166,22 +166,43 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		}
 	}
 
-	if (doc) {
-		const state = parse(JSON.stringify(doc.state_tree));
+	if (!doc) return false;
 
-		const watcher = state.observer.watch(async () => {
-			try {
-				await validateData(collection, state);
-				await driver.update(collection, doc._id, state, props);
-			} catch (error) {
-				console.error(error.message);
-			}
-		});
+	const state = parse(JSON.stringify(doc.state_tree));
 
-		watchers.push(watcher);
+	watchers.push(state.observer.watch(async () => {
+		try {
+			await validateData(collection, state);
+			await driver.update(collection, doc._id, state, props);
+		} catch (error) {
+			console.error(error.message);
+		}
+	}));
 
-		return state;
-	} else {
-		return false;
-	}
+	return state;
+};
+
+/**
+ * Removes a document from the specified collection using the provided query.
+ *
+ * @param {string} driver - The name of the storage driver (e.g., 'mongodb').
+ * @param {string} collection - The name of the collection from which to delete the document.
+ * @param {Object} query - The query used to identify the document to be deleted.
+ * @returns {Promise<boolean>} Returns true if the document was successfully deleted, otherwise false.
+ * @throws {Error} Throws an error if the deletion process fails.
+ */
+ODB.remove = async (driver, collection, query) => {
+    driver = drivers[driver];
+
+    if (driver.transformQuery) query = driver.transformQuery(query);
+
+    try {
+        const result = await driver.query(collection, query);
+
+        if (result) return await driver.remove(collection, result.id);
+        else return false; // Requested document not found:
+    } catch (error) {
+        console.error(error.message);
+        return false;
+    }
 };

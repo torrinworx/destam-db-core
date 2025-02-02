@@ -3,8 +3,9 @@ import { expect } from 'chai';
 import { OObject } from "destam";
 import { initODB, closeODB, ODB } from "../odb.js";
 import { validator, collectionValidators } from '../validation.js';
+import { remove } from 'destam/util.js';
 
-let initStatus; 
+let initStatus;
 test.before(async () => {
 	initStatus = await initODB({ test: true });
 });
@@ -54,7 +55,7 @@ test("success on valid data", async () => {
 			message: "Field must be a string.",
 		}
 	});
-	
+
 	const result = await ODB('mongodb', 'testSuccess', {}, OObject({
 		requiredField: 'A valid string'
 	}));
@@ -98,7 +99,18 @@ test("successful data querying", async () => {
 });
 
 test("query for non-existent data", async () => {
-	const queryResult = await ODB('mongodb', 'testQuery', { 'queryField': 'Non-existent data' });
+	const queryResult = await ODB('mongodb', 'testQuery', { queryField: 'Non-existent data' });
+	expect(queryResult).to.equal(false);
+});
+
+test("deletion of existing data", async () => {
+	const insertResult = await ODB('mongodb', 'testRemove', {}, OObject({ removeField: 'Removable data' }));
+	expect(insertResult).to.be.an('object');
+
+	const removeResult = await ODB.remove('mongodb', 'testRemove', { removeField: 'Removable data' });
+	expect(removeResult).to.equal(true);
+
+	const queryResult = await ODB('mongodb', 'testRemove', { removeField: 'Removable data' });
 	expect(queryResult).to.equal(false);
 });
 

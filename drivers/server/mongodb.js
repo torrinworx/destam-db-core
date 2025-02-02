@@ -67,10 +67,7 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             const collection = db.collection(collectionName);
             const result = await collection.findOne(query);
             if (!result) return false
-            else return {
-                state_tree: result.state_tree,
-                id: result._id
-            }
+            else return { state_tree: result.state_tree, id: result._id }
         },
 
         /**
@@ -92,8 +89,23 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             return result;
         },
 
-        remove: async (collectionName, id) => {
-        
+        /**
+         * Removes a document from the specified collection by its ID.
+         *
+         * @param {string} collection - The name of the collection from which to delete the document.
+         * @param {Object} id - The unique identifier of the document to delete.
+         * @returns {Promise<boolean>} Returns true if the document was successfully deleted, otherwise false.
+         * @throws {Error} Logs an error message if the deletion fails.
+         */
+        remove: async (collection, id) => {
+            try {
+                const result = await db.collection(collection).deleteOne({ _id: id });
+                // result.deletedCount will tell us if a document was actually deleted
+                return result.deletedCount > 0;
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                return false;
+            }
         },
 
         /**
