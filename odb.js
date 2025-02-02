@@ -173,7 +173,7 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 	watchers.push(state.observer.watch(async () => {
 		try {
 			await validateData(collection, state);
-			await driver.update(collection, doc._id, state, props);
+			await driver.update(collection, doc.id, state, props);
 		} catch (error) {
 			console.error(error.message);
 		}
