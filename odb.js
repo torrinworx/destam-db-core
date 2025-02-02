@@ -20,44 +20,11 @@ Each driver has a set of functions:
 */
 
 import { parse, stringify } from './clone.js';
+import { validateData } from './validation.js';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
 let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
-export const collectionValidators = {};
-
-/**
- * Registers a validation schema for a specific collection.
- *
- * @param {string} collection - The name of the collection.
- * @param {Object} schema - The validation schema.
- */
-export const validator = (collection, schema) => {
-	collectionValidators[collection] = schema;
-};
-
-/**
- * Validates data against the registered schema for a collection.
- *
- * @param {string} collection - The name of the collection.
- * @param {Object} data - The Json/Object data to validate.
- * @throws {Error} Throws an error if validation fails.
- */
-const validateData = async (collection, data) => {
-	const schema = collectionValidators[collection];
-	if (!schema) return;
-
-	for (const field in schema) {
-		if (!(field in data)) {
-			throw new Error(`Validation Error: Missing field '${field}' in collection '${collection}'.`);
-		}
-		const { validate, message } = schema[field];
-		const isValid = await validate(data[field]);
-		if (!isValid) {
-			throw new Error(`Validation Error: ${message} - ${data[field]}`);
-		}
-	}
-};
 
 /**
  * Creates a database document from an observer state value.
@@ -101,7 +68,7 @@ export const initODB = async (props) => {
 
 			if (module && module.default) {
 				let driverInstance = module.default(
-					createStateDoc,
+					createStateDoc, // /ideally we don't even have to pass in createStateDoc and that is just called in ODB itself.
 					props
 				);
 
@@ -171,8 +138,7 @@ export const closeODB = async (props) => {
  * @returns {Promise<Object|boolean>} Returns the state object if successful, or false if validation fails.
  * @throws {Error} Throws an error if validation fails.
  */
-export const ODB = async (driver, collection, query, value = null, props) => {
-	// let state_tree, id;
+export const ODB = async (driver, collection, query, value = null, props) => {	
 	driver = drivers[driver];
 
 	try {
@@ -181,33 +147,32 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		console.error(error.message);
 		return false;
 	}
+	
 	if (driver.transformQuery) query = driver.transformQuery(query);
+	
+	let doc;
+	if (Object.keys(query).length === 0) { // No query, create doc
+		doc = await driver.insert(collection, value);
+	} else { // yes query, fetch doc
+		doc = await driver.query(collection, query);
 
-	// if (!query || Object.keys(query).length === 0) {
-	// 	state_tree, id = await driver.insertDoc();
-	// } else {
-	// 	// modify query if driver needs.
-	// 	if (driver.transformQuery) query = driver.transformQuery(query);
-	// 	dbDocument = await collection.findOne(transformedQuery);
+		if (!doc) { // no query result found
+			if (!value) {
+				// return false if no query results or value:
+				return false;
+			}
+			// if no query results but value, create doc from value:
+			doc = await driver.insert(collection, value);
+		}
+	}
 
-	// 	if (!dbDocument) { // no query result found
-	// 		if (!value) {
-	// 			return false; // return false if no query results or value
-	// 		}
-	// 		dbDocument = await createDoc(); // if no query results but value, create doc from value.
-	// 	}
-	// }
-
-
-	const { state_tree, id } = await driver.init(collection, query, value, props);
-
-	if (state_tree) {
-		const state = parse(JSON.stringify(state_tree));
+	if (doc) {
+		const state = parse(JSON.stringify(doc.state_tree));
 
 		const watcher = state.observer.watch(async () => {
 			try {
 				await validateData(collection, state);
-				await driver.update(collection, id, state, props);
+				await driver.update(collection, doc._id, state, props);
 			} catch (error) {
 				console.error(error.message);
 			}

@@ -56,63 +56,21 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
     }
 
     return {
-        /**
-         * Initializes a collection by mapping it to a MongoDB collection. If a query is provided,
-         * it searches for an existing document matching the query. If no document is found,
-         * it returns false. If no query is provided, it creates a new document with the given value.
-         *
-         * @param {string} collectionName - The name of the collection.
-         * @param {Object} query - The query to search for an existing document.
-         * @param {Object} value - The value to insert if no query is provided.
-         * @returns {Promise<Object|boolean>} An object containing the state tree and document ID, or false if not found.
-         */
-        init: async (collectionName, query, value) => {
-            let state_tree, id;
+        insert: async (collectionName, value) => {
             const collection = db.collection(collectionName);
+            const stateDoc = createStateDoc(value);
+            const result = await collection.insertOne(stateDoc);
+            return { state_tree: stateDoc.state_tree, id: result.insertedId }
+        },
 
-            const createDoc = async () => {
-                const stateDoc = createStateDoc(value);
-                const result = await collection.insertOne(stateDoc);
-                id = result.insertedId;
-                state_tree = stateDoc.state_tree;
-            };
-
-            // No query, create doc
-            if (Object.keys(query).length === 0) {
-                await createDoc();
-            } else { // yes query, fetch doc
-                const result = await collection.findOne(query);
-
-                if (!result) { // no query result found
-                    if (!value) {
-                        return false; // return false if no query results or value
-                    }
-                    await createDoc(); // if no query results but value, create doc from value.
-                } else {
-                    state_tree = result.state_tree;
-                    id = result._id;
-                }
+        query: async (collectionName, query) => {
+            const collection = db.collection(collectionName);
+            const result = await collection.findOne(query);
+            if (!result) return false
+            else return {
+                state_tree: result.state_tree,
+                id: result._id
             }
-
-            return { state_tree, id };
-        },
-
-        fetchDoc: async (query) => {
-        },
-
-        insertDoc: async (value) => {
-        },
-
-        /**
-         * Transforms the query keys to target the 'state_json' document field.
-         *
-         * @param {Object} query - The original query object.
-         * @returns {Object} The transformed query object with keys prefixed by 'state_json.'.
-         */
-        transformQuery: (query) => {
-            return Object.fromEntries(
-                Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
-            );
         },
 
         /**
@@ -132,6 +90,22 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
                 }
             );
             return result;
+        },
+
+        remove: async (collectionName, id) => {
+        
+        },
+
+        /**
+         * Transforms the query keys to target the 'state_json' document field.
+         *
+         * @param {Object} query - The original query object.
+         * @returns {Object} The transformed query object with keys prefixed by 'state_json.'.
+         */
+        transformQuery: (query) => {
+            return Object.fromEntries(
+                Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
+            );
         },
 
         /**

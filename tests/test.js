@@ -1,7 +1,8 @@
 import test from 'node:test';
 import { expect } from 'chai';
 import { OObject } from "destam";
-import { initODB, closeODB, ODB, validator, collectionValidators } from "../odb.js";
+import { initODB, closeODB, ODB } from "../odb.js";
+import { validator, collectionValidators } from '../validation.js';
 
 let initStatus; 
 test.before(async () => {
