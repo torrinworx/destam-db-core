@@ -1,11 +1,4 @@
-/*
-A MongoDB driver for the ODB system, providing initialization, update, and closure
-functionalities for MongoDB connections. It supports both in-memory MongoDB for testing
-and persistent MongoDB instances based on environment configurations.
-
-Each document in the collection contains a state tree and its simplified JSON version used
-for querying.
-*/
+// mongodb.js
 
 import { config } from 'dotenv';
 import { MongoClient } from 'mongodb';
@@ -21,7 +14,7 @@ config();
  * @param {boolean} [props.test=false] - Indicates whether to use an in-memory MongoDB server.
  * @returns {Promise<Object>} An object containing the init, update, and close methods for the driver.
  */
-export default async (createStateDoc, { test = false }) => { // TODO: switch test to .env ENV var or something
+export default async (createStateDoc, { test = false }) => {
     let dbClient;
     let db;
     let mongoServer;
@@ -33,7 +26,6 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
         // Check for DB and DB_TABLE in environment variables
         if (!dbURL) {
             console.error('Error: Environment variable DB is not set. Please provide the MongoDB connection string.');
-
         }
 
         if (!dbName) {
@@ -47,12 +39,14 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             await dbClient.connect();
             console.log('\x1b[32mConnected to MongoDB\x1b[0m');
         } catch (error) {
-            console.error('Failed to connect to MongoDB:', error);
+            console.error('Cannot connect to MongoDB:\n', error.message);
             process.exit(1);
         }
 
         db = dbClient.db(dbName);
-    } else { // use in memory mongodb for tests
+
+    } else { 
+        // Use in-memory mongodb for tests
         mongoServer = await MongoMemoryServer.create();
         const dbURL = mongoServer.getUri();
         dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
@@ -61,7 +55,10 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             await dbClient.connect();
             console.log('\x1b[32mConnected to in-memory MongoDB\x1b[0m');
         } catch (error) {
-            console.error('Failed to connect to in-memory MongoDB:', error);
+            // Only display a simple error message
+            console.error('Cannot connect to in-memory MongoDB error.');
+            // Optionally, you could log more detail if needed:
+            // console.error('Error details:', error.message);
             process.exit(1);
         }
 
@@ -95,9 +92,7 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             const collection = db.collection(collectionName);
             const result = await collection.updateOne(
                 { _id: id },
-                {
-                    $set: createStateDoc(state)
-                }
+                { $set: createStateDoc(state) }
             );
             return result;
         },
