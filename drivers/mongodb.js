@@ -56,7 +56,7 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
     }
 
     return {
-        insert: async (collectionName, value) => {
+        create: async (collectionName, value) => {
             const collection = db.collection(collectionName);
             const stateDoc = createStateDoc(value);
             const result = await collection.insertOne(stateDoc);
@@ -110,15 +110,18 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
 
         /**
          * Transforms the query keys to target the 'state_json' document field.
+         * transformQuery is optional, allowing the driver to specify custom methods
+         * to transform the search query before intaking it, this can also be done in
+         * the query() function if needed, but the definition of transformQuery is meant
+         * to enforce a standard format for drivers to follow. it's specificly meant for
+         * converting standard queries to search within the state_json version.
          *
          * @param {Object} query - The original query object.
          * @returns {Object} The transformed query object with keys prefixed by 'state_json.'.
          */
-        transformQuery: (query) => {
-            return Object.fromEntries(
-                Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
-            );
-        },
+        transformQuery: (query) => Object.fromEntries(
+            Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
+        ),
 
         /**
          * Closes the MongoDB client and, if applicable, stops the in-memory MongoDB server.

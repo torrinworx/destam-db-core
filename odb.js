@@ -24,7 +24,23 @@ import { validateData } from './validation.js';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
-let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
+// let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
+
+let drivers = {};
+const driversList = [
+	{
+		name: 'mongodb',
+		env: 'server'
+	},
+	{
+		name: 'fs',
+		env: 'server'
+	},
+	{
+		name: 'indexeddb',
+		env: 'client'
+	}
+]
 
 /**
  * Creates a database document from an observer state value.
@@ -46,7 +62,18 @@ const createStateDoc = (value) => {
  * @returns {Object} An object representing the initialization status of each driver.
  */
 export const initODB = async (props) => {
-	const basePath = isClient ? './drivers/client/' : './drivers/server/';
+	for (const driver of driversList) {
+		if (props.test) {
+			drivers[driver.name] = {};
+		} else {
+			if (driver.env === 'client' && isClient) {
+				drivers[driver.name] = {};
+			} else if (driver.env === 'server' && !isClient) {
+				drivers[driver.name] = {};
+			}
+		}
+	}
+
 	const initStatus = {};
 
 	for (const driverName in drivers) {
@@ -63,7 +90,7 @@ export const initODB = async (props) => {
 				}
 			} else {
 				// Use dynamic imports for server
-				module = await import(/* @vite-ignore */ `${basePath}${driverName}.js`);
+				module = await import(/* @vite-ignore */ `./drivers/${driverName}.js`);
 			}
 
 			if (module && module.default) {
@@ -152,7 +179,7 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 
 	let doc;
 	if (Object.keys(query).length === 0) { // No query, create doc
-		doc = await driver.insert(collection, value);
+		doc = await driver.create(collection, value);
 	} else { // yes query, fetch doc
 		doc = await driver.query(collection, query);
 
@@ -162,7 +189,7 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 				return false;
 			}
 			// if no query results but value, create doc from value:
-			doc = await driver.insert(collection, value);
+			doc = await driver.create(collection, value);
 		}
 	}
 
@@ -192,17 +219,17 @@ export const ODB = async (driver, collection, query, value = null, props) => {
  * @throws {Error} Throws an error if the deletion process fails.
  */
 ODB.remove = async (driver, collection, query) => {
-    driver = drivers[driver];
+	driver = drivers[driver];
 
-    if (driver.transformQuery) query = driver.transformQuery(query);
+	if (driver.transformQuery) query = driver.transformQuery(query);
 
-    try {
-        const result = await driver.query(collection, query);
+	try {
+		const result = await driver.query(collection, query);
 
-        if (result) return await driver.remove(collection, result.id);
-        else return false; // Requested document not found:
-    } catch (error) {
-        console.error(error.message);
-        return false;
-    }
+		if (result) return await driver.remove(collection, result.id);
+		else return false; // Requested document not found:
+	} catch (error) {
+		console.error(error.message);
+		return false;
+	}
 };
