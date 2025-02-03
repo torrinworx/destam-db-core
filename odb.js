@@ -105,7 +105,6 @@ export const initODB = async (props = { test: false }) => {
 
 				drivers[driverName] = driverInstance;
 
-				console.log(`${driverName} driver mounted.`);
 				initStatus[driverName] = true;
 			} else {
 				throw new Error('No default export found.');
@@ -132,7 +131,6 @@ export const closeODB = async (props) => {
 		if (driver.close) {
 			try {
 				await driver.close(props);
-				console.log(`${driverName} driver closed.`);
 			} catch (error) {
 				console.error(`Failed to close ${driverName} driver:`, error);
 			}
@@ -143,7 +141,6 @@ export const closeODB = async (props) => {
 	for (const watcher of watchers) {
 		try {
 			await watcher();
-			console.log(`Watcher closed.`);
 		} catch (error) {
 			console.error(`Failed to close watcher:`, error);
 		}

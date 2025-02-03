@@ -137,7 +137,6 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
             if (test) {
                 try {
                     await fs.rm(rootDir, { recursive: true, force: true });
-                    console.log(`Test data directory removed: ${rootDir}`);
                 } catch (error) {
                     console.error(`Error removing test data directory at ${rootDir}:`, error);
                 }
