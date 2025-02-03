@@ -61,17 +61,17 @@ const createStateDoc = (value) => {
  * @param {Object} props - Properties to send to drivers on startup.
  * @returns {Object} An object representing the initialization status of each driver.
  */
-export const initODB = async (props) => {
+export const initODB = async (props = { test: false }) => {
 	for (const driver of driversList) {
-		if (props.test) {
-			drivers[driver.name] = {};
-		} else {
-			if (driver.env === 'client' && isClient) {
-				drivers[driver.name] = {};
-			} else if (driver.env === 'server' && !isClient) {
-				drivers[driver.name] = {};
-			}
+	  if (props.test) {
+		drivers[driver.name] = {};
+	  } else {
+		if (driver.env === 'client' && isClient) {
+		  drivers[driver.name] = {};
+		} else if (driver.env === 'server' && !isClient) {
+		  drivers[driver.name] = {};
 		}
+	  }
 	}
 
 	const initStatus = {};

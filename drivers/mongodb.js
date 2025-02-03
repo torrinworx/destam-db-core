@@ -26,7 +26,33 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
     let db;
     let mongoServer;
 
-    if (test) { // use in memory mongodb for tests
+    if (!test) {
+        const dbURL = process.env.DB;
+        const dbName = process.env.DB_TABLE;
+
+        // Check for DB and DB_TABLE in environment variables
+        if (!dbURL) {
+            console.error('Error: Environment variable DB is not set. Please provide the MongoDB connection string.');
+
+        }
+
+        if (!dbName) {
+            console.error('Error: Environment variable DB_TABLE is not set. Please provide the database name.');
+            process.exit(1);
+        }
+
+        dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
+
+        try {
+            await dbClient.connect();
+            console.log('\x1b[32mConnected to MongoDB\x1b[0m');
+        } catch (error) {
+            console.error('Failed to connect to MongoDB:', error);
+            process.exit(1);
+        }
+
+        db = dbClient.db(dbName);
+    } else { // use in memory mongodb for tests
         mongoServer = await MongoMemoryServer.create();
         const dbURL = mongoServer.getUri();
         dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
@@ -36,19 +62,6 @@ export default async (createStateDoc, { test = false }) => { // TODO: switch tes
             console.log('\x1b[32mConnected to in-memory MongoDB\x1b[0m');
         } catch (error) {
             console.error('Failed to connect to in-memory MongoDB:', error);
-            process.exit(1);
-        }
-
-        db = dbClient.db('webcore');
-    } else {
-        const dbURL = process.env.DB;
-        dbClient = new MongoClient(dbURL, { serverSelectionTimeoutMS: 1000 });
-
-        try {
-            await dbClient.connect();
-            console.log('\x1b[32mConnected to MongoDB\x1b[0m');
-        } catch (error) {
-            console.error('Failed to connect to MongoDB:', error);
             process.exit(1);
         }
 
