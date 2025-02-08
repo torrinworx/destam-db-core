@@ -1,5 +1,6 @@
 import fs from 'fs';
 import path from 'path';
+import chokidar from 'chokidar';
 import * as Network from 'destam/Network.js';
 import { Insert, Modify, Delete } from 'destam/Events.js';
 import { createClass, createInstance, push, remove, assert } from 'destam/util.js';
@@ -22,101 +23,6 @@ const getDirectoryState = (dirPath) => {
 	}, {});
 };
 
-/**
- * One comment: Observables are not supposed to implement a watch function. Instead, they're supposed to call into the network with Network.linkApply
- * The network is the thing that implements the fine grained listeners that we have
- * so .path .ignore .skip ... etc
- * But I don't know if the ideas are really all that compatible: Observables are synchronious while the fs is asynchronious. That's why you have to put the 'sync' versions everywhere
- * - Alex
- * 
- * 	
-alex
-5:37 PM
-One comment: Observables are not supposed to implement a watch function. Instead, they're supposed to call into the network with Network.linkApply
-
-The network is the thing that implements the fine grained listeners that we have
-
-so .path .ignore .skip ... etc
-
-
-torrin
-5:38 PM
-Oooooh I see
-
-
-alex
-5:38 PM
-Not a bad idea
-
-But I don't want to implement nodejs specific stuff in destam because that's supposed to be backend/frontend
-
-As a seperate library maybe 'destam-fs' would work
-
-
-torrin
-5:40 PM
-Ah right right, makes sense, well thanks! I came up with it because I wanted to watch a dir with images for my personal site 
-
-
-alex
-5:40 PM
-But I don't know if the ideas are really all that compatible: Observables are synchronious while the fs is asynchronious. That's why you have to put the 'sync' versions everywhere
-
-Plus it won't work if you try to send a ODir or OFile over the network to the frontend or something
-
-I would suggest an alternate approach that doesn't require building a new observable:
-
-
-torrin
-5:44 PM
-Oh I see, so maybe just a really fancy OArray?
-
-
-alex
-5:46 PM
-Build a state tree but modify it from the outside:
-
-const createObservableFromFS = (fsFile) => {
-const files = OObject();
-
-for (const file in fsFile.getFiles()) {
-if (file.isDirectory()){
-   files[file.name] = createObservableFromFS(file);
-} else {
-   files[file.name] = {name: file.name, contents: ...};
-}
-}
-
-fsFile.watch(() => {
- // update the files oobject
-});
-}
-
-torrin
-5:48 PM
-Ah ok and fsFile is the existing ODir .getFiles() method using fs? 
-
-
-alex
-5:49 PM
-Yeah, it's pseudo code
-
-
-torrin
-5:49 PM
-oh right right mb
-
-5:49 PM
-
-
-
-
-
-
-
-ok cool that makes sense
- */
-
 const ODir = createClass((dirPath, id) => {
 	assert(typeof dirPath === 'string', 'Directory path must be a string');
 
@@ -126,22 +32,29 @@ const ODir = createClass((dirPath, id) => {
 
 	const listeners = [];
 	const invokeListeners = (delta) => {
-		for (const listener of listeners) listener(delta);
+		for (const listener of listeners) {
+			listener(delta);
+		}
 	};
 
 	const updateDirectoryState = () => {
 		const newState = getDirectoryState(dirPath);
 
+		// Check for new or modified files
 		Object.keys(newState).forEach(file => {
 			if (!currentState[file]) {
 				const delta = Insert(undefined, { file, ...newState[file] }, file, id);
 				invokeListeners(delta);
-			} else if (newState[file].mtimeMs !== currentState[file].mtimeMs || newState[file].size !== currentState[file].size) {
+			} else if (
+				newState[file].mtimeMs !== currentState[file].mtimeMs ||
+				newState[file].size !== currentState[file].size
+			) {
 				const delta = Modify(currentState[file], newState[file], file, id);
 				invokeListeners(delta);
 			}
 		});
 
+		// Check for deleted files
 		Object.keys(currentState).forEach(file => {
 			if (!newState[file]) {
 				const delta = Delete(currentState[file], undefined, file, id);
@@ -194,16 +107,39 @@ const ODir = createClass((dirPath, id) => {
 		updateDirectoryState();
 	};
 
-	fs.watch(dirPath, { persistent: false }, updateDirectoryState);
+	const watcher = chokidar.watch(dirPath, {
+		persistent: false,
+		ignoreInitial: false,  // get 'add' signals for existing files if you like
+		awaitWriteFinish: {
+			stabilityThreshold: 3000, // how long a file must remain unchanged before we consider it "done"
+			pollInterval: 100 // how frequently to check if the file size changes
+		}
+	});
 
+	// For each event, refresh our directory state
+	const scheduleUpdate = () => {
+		// You could optionally debounce here if you want
+		updateDirectoryState();
+	};
+
+	watcher
+		.on('add', scheduleUpdate)
+		.on('change', scheduleUpdate)
+		.on('unlink', scheduleUpdate)
+		.on('error', (err) => {
+			console.error('Chokidar error:', err);
+		});
+
+	// Chokidar returns the watcher instance; you can close it if you need
+	// For example, in your stopWatching method
 	return createInstance(ODir, {
 		observer: {
 			get: () => reg
 		},
-		getFiles: {
+		get: {
 			value: () => Object.keys(currentState || {})
 		},
-		addFile: {
+		add: {
 			value: addFile
 		},
 		pop: {
@@ -217,15 +153,19 @@ const ODir = createClass((dirPath, id) => {
 				push(listeners, callback);
 				return () => remove(listeners, callback);
 			}
+		},
+		stopWatching: {
+			value: () => {
+				watcher.close().then(() => {
+					console.log('Chokidar closed');
+				});
+				for (let listener of listeners) {
+					listener();
+				}
+				listeners.length = 0;
+			}
 		}
 	});
-}, {
-	stopWatching: function() {
-		for (let listener of listeners) {
-			listener();
-		}
-		listeners.length = 0;
-	}
-});
+}, {});
 
 export default ODir;
