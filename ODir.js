@@ -156,9 +156,7 @@ const ODir = createClass((dirPath, id) => {
 		},
 		stopWatching: {
 			value: () => {
-				watcher.close().then(() => {
-					console.log('Chokidar closed');
-				});
+				watcher.close()
 				for (let listener of listeners) {
 					listener();
 				}

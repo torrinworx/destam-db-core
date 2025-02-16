@@ -22,6 +22,8 @@ Each driver has a set of functions:
 import { parse, stringify } from './clone.js';
 import { validateData } from './validation.js';
 
+import { OObject } from 'destam';
+
 const watchers = [];
 const isClient = typeof window !== 'undefined';
 // let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
@@ -63,15 +65,15 @@ const createStateDoc = (value) => {
  */
 export const initODB = async (props = { test: false }) => {
 	for (const driver of driversList) {
-	  if (props.test) {
-		drivers[driver.name] = {};
-	  } else {
-		if (driver.env === 'client' && isClient) {
-		  drivers[driver.name] = {};
-		} else if (driver.env === 'server' && !isClient) {
-		  drivers[driver.name] = {};
+		if (props.test) {
+			drivers[driver.name] = {};
+		} else {
+			if (driver.env === 'client' && isClient) {
+				drivers[driver.name] = {};
+			} else if (driver.env === 'server' && !isClient) {
+				drivers[driver.name] = {};
+			}
 		}
-	  }
 	}
 
 	const initStatus = {};
@@ -190,9 +192,28 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		}
 	}
 
-	if (!doc) return false;
+	if (!doc || typeof doc !== 'object') {
+		throw new Error("Driver returned invalid doc: Doc is missing or not an object.");
+	}
+	if (!doc.state_tree) {
+		throw new Error("Driver returned invalid doc: 'state_tree' property is missing.");
+	}
+	if (!doc.id) {
+		throw new Error("Driver returned invalid doc: 'id' property is missing.");
+	}
+	if (!doc.state_tree.OBJECT_TYPE || !doc.state_tree.id || !doc.state_tree.vals) {
+		throw new Error(
+			"Driver returned invalid doc: 'state_tree' is missing one or more required fields (OBJECT_TYPE, id, vals)."
+		);
+	}
 
 	const state = parse(JSON.stringify(doc.state_tree));
+
+	if (!(state instanceof OObject)) {
+		throw new Error(
+			"Driver returned invalid doc: 'state_tree' is not converting to a valid OArray or OObject."
+		);
+	};
 
 	watchers.push(state.observer.watch(async () => {
 		try {
