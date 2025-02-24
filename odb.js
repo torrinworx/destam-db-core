@@ -26,21 +26,22 @@ import { OObject } from 'destam';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
-// let drivers = isClient ? { indexeddb: {} } : { mongodb: {}, fs: {} };
 
-let drivers = {};
-const driversList = [
+let drivers = [
 	{
 		name: 'mongodb',
-		env: 'server'
+		env: 'server',
+		driver: {}
 	},
 	{
 		name: 'fs',
-		env: 'server'
+		env: 'server',
+		driver: {}
 	},
 	{
 		name: 'indexeddb',
-		env: 'client'
+		env: 'client',
+		driver: {}
 	}
 ]
 
@@ -64,40 +65,35 @@ const createStateDoc = (value) => {
  * @returns {Object} An object representing the initialization status of each driver.
  */
 export const initODB = async (props = { test: false }) => {
-	for (const driver of driversList) {
-		if (props.test) {
-			drivers[driver.name] = {};
-		} else {
-			if (driver.env === 'client' && isClient) {
-				drivers[driver.name] = {};
-			} else if (driver.env === 'server' && !isClient) {
-				drivers[driver.name] = {};
-			}
-		}
-	}
-
 	const initStatus = {};
 
-	for (const driverName in drivers) {
+	for (const driver of drivers) {
 		try {
+			if (!isClient && driver.env === 'client' && !props.test) continue;
+			if (isClient && driver.env === 'server') continue;
+
 			let module;
-			if (isClient) {
+
+			if (isClient && driver.env === 'client') {
+
 				// Use Vite's import.meta.glob for client
 				const modules = import.meta.glob('./drivers/client/*.js', { eager: true });
 
 				for (const path in modules) {
-					if (path.includes(driverName)) {
+					if (path.includes(driver.name)) {
 						module = modules[path];
 					}
 				}
-			} else {
+			} else if (props.test && driver.env === 'client') {
+				module = await import(/* @vite-ignore */ `./drivers/client/${driver.name}.js`);
+			} else if (driver.env === 'server') {
 				// Use dynamic imports for server
-				module = await import(/* @vite-ignore */ `./drivers/${driverName}.js`);
+				module = await import(/* @vite-ignore */ `./drivers/${driver.name}.js`);
 			}
 
 			if (module && module.default) {
 				let driverInstance = module.default(
-					createStateDoc, // /ideally we don't even have to pass in createStateDoc and that is just called in ODB itself.
+					createStateDoc, // ideally we don't even have to pass in createStateDoc and that is just called in ODB itself.
 					props
 				);
 
@@ -105,18 +101,19 @@ export const initODB = async (props = { test: false }) => {
 					driverInstance = await driverInstance;
 				}
 
-				drivers[driverName] = driverInstance;
+				drivers[driver.name] = driverInstance;
 
-				initStatus[driverName] = true;
+				initStatus[driver.name] = true;
 			} else {
 				throw new Error('No default export found.');
 			}
 		} catch (error) {
 			console.log(error)
-			console.warn(`Driver for ${driverName} wasn't mounted. If you need this driver, check its setup is correct.`);
-			initStatus[driverName] = false;
+			console.warn(`Driver for ${driver.name} wasn't mounted. If you need this driver, check its setup is correct.`);
+			initStatus[driver.name] = false;
 		}
 	}
+
 	return initStatus;
 };
 

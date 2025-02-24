@@ -1,8 +1,3 @@
-import { config } from 'dotenv';
-import 'fake-indexeddb/auto';
-
-config();
-
 const dbName = 'webcore';
 let cachedDB = null;
 let knownStores = new Set();
@@ -92,6 +87,9 @@ const openStore = async (collectionName, mode = 'readwrite') => {
 };
 
 export default async (createStateDoc, { test = false }) => {
+
+	if (test) await import(/* @vite-ignore */ 'fake-indexeddb/auto');
+
 
 	const queryFunc = async (collectionName, query) => {
 		const store = await openStore(collectionName, 'readonly');
