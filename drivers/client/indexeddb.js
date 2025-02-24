@@ -48,11 +48,11 @@ const _openDB = (collectionName, version, mode) =>
 const bootstrapDB = async () => {
 	if (isBootstrapped) return;
 	const db = await new Promise((resolve, reject) => {
-		const request = indexedDB.open(dbName, currentDBVersion);
+		const request = indexedDB.open(dbName);
 		request.onsuccess = (e) => resolve(e.target.result);
 		request.onerror = () => reject(new Error('Failed to bootstrap DB'));
 	});
-
+	
 	cachedDB = db;
 	currentDBVersion = db.version; // Keep our local version in sync
 
@@ -87,7 +87,6 @@ const openStore = async (collectionName, mode = 'readwrite') => {
 };
 
 export default async (createStateDoc, { test = false }) => {
-
 	if (test) await import(/* @vite-ignore */ 'fake-indexeddb/auto');
 
 
