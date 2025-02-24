@@ -4,7 +4,7 @@ import { OObject } from "destam";
 import { initODB, closeODB, ODB } from "./odb.js";
 import { validator, collectionValidators } from './validation.js';
 
-const drivers = ['indexeddb'];
+const drivers = ['indexeddb', 'mongodb', 'fs'];
 
 let initStatus;
 test.before(async () => {
