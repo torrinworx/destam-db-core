@@ -6,7 +6,7 @@ export const collectionValidators = {};
  * @param {string} collection - The name of the collection.
  * @param {Object} schema - The validation schema.
  */
-export const validator = (collection, schema) => {
+export const validator = ({ collection, schema }) => {
     collectionValidators[collection] = schema;
 };
 
@@ -17,7 +17,7 @@ export const validator = (collection, schema) => {
  * @param {Object} data - The Json/Object data to validate.
  * @throws {Error} Throws an error if validation fails.
  */
-export const validateData = async (collection, data) => {
+export const validateData = async ({ collection, data }) => {
     const schema = collectionValidators[collection];
     if (!schema) return;
 

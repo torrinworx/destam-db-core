@@ -6,7 +6,7 @@ import { randomUUID } from 'crypto';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-export default async (createStateDoc, { test = false, baseDir } = {}) => {
+export default async ({ test = false, baseDir } = {}) => {
     // Default directory for storing data unless passed in via props.
     // If test mode is on, we use "test_data" folder to avoid overwriting real data.
     const rootDir = baseDir
@@ -47,9 +47,8 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
     };
 
     return {
-        create: async (collectionName, value) => {
+        create: async ({ collectionName, stateDoc }) => {
             const collectionPath = await getCollectionPath(collectionName);
-            const stateDoc = createStateDoc(value);
             // Assign an ID
             const newId = randomUUID();
             stateDoc.id = newId;
@@ -59,7 +58,7 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
             return { state_tree: stateDoc.state_tree, id: stateDoc.id };
         },
 
-        query: async (collectionName, queryObj) => {
+        query: async ({ collectionName, query }) => {
             const collectionPath = await getCollectionPath(collectionName);
 
             let fileNames;
@@ -73,7 +72,7 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
             }
 
             const simplifiedQuery = {};
-            for (const [key, val] of Object.entries(queryObj)) {
+            for (const [key, val] of Object.entries(query)) {
                 const isStateJsonKey = key.startsWith('state_json.');
                 const actualKey = isStateJsonKey ? key.replace('state_json.', '') : key;
                 simplifiedQuery[actualKey] = val;
@@ -97,24 +96,22 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
             return false;
         },
 
-        update: async (collectionName, id, state) => {
+        update: async ({ collectionName, id, stateDoc }) => {
             const collectionPath = await getCollectionPath(collectionName);
             const doc = await readDocFile(collectionPath, id);
             if (!doc) {
                 return false;
             }
 
-            const newDoc = createStateDoc(state);
-            newDoc.id = doc.id;
+            stateDoc.id = doc.id;
 
-            await writeDocFile(collectionPath, id, newDoc);
-            return newDoc;
+            await writeDocFile(collectionPath, id, stateDoc);
+            return stateDoc;
         },
 
-        remove: async (collectionName, docId) => {
+        remove: async ({ collectionName, id }) => {
             const collectionPath = await getCollectionPath(collectionName);
-            const docPath = join(collectionPath, `${docId}.json`);
-
+            const docPath = join(collectionPath, `${id}.json`);
             try {
                 await fs.unlink(docPath);
                 return true;
@@ -126,7 +123,7 @@ export default async (createStateDoc, { test = false, baseDir } = {}) => {
             }
         },
 
-        transformQuery: (query) => {
+        transformQuery: ({ query }) => {
             return Object.fromEntries(
                 Object.entries(query).map(([key, value]) => [`state_json.${key}`, value])
             );

@@ -52,7 +52,7 @@ const bootstrapDB = async () => {
 		request.onsuccess = (e) => resolve(e.target.result);
 		request.onerror = () => reject(new Error('Failed to bootstrap DB'));
 	});
-	
+
 	cachedDB = db;
 	currentDBVersion = db.version; // Keep our local version in sync
 
@@ -86,46 +86,42 @@ const openStore = async (collectionName, mode = 'readwrite') => {
 	return _openDB(collectionName, currentDBVersion, mode);
 };
 
-export default async (createStateDoc, { test = false }) => {
+export default async ({ test = false }) => {
 	if (test) await import(/* @vite-ignore */ 'fake-indexeddb/auto');
 
-
-	const queryFunc = async (collectionName, query) => {
-		const store = await openStore(collectionName, 'readonly');
-		return new Promise((resolve, reject) => {
-			const cursorReq = store.openCursor();
-			cursorReq.onsuccess = (e) => {
-				const cursor = e.target.result;
-				if (!cursor) return resolve(false);
-				const matches = Object.keys(query).every(
-					(key) => cursor.value.state_json && cursor.value.state_json[key] === query[key]
-				);
-				if (matches) {
-					resolve({ state_tree: cursor.value.state_tree, id: cursor.value._id });
-				} else {
-					cursor.continue();
-				}
-			};
-			cursorReq.onerror = () => reject(new Error('Error finding document'));
-		});
-	}
-
 	return {
-		create: async (collectionName, value) => {
+		create: async ({ collectionName, stateDoc }) => {
 			const store = await openStore(collectionName);
-			const doc = createStateDoc(value);
 			return new Promise((resolve, reject) => {
-				const req = store.add(doc);
-				req.onsuccess = () => resolve({ state_tree: doc.state_tree, id: req.result });
+				const req = store.add(stateDoc);
+				req.onsuccess = () => resolve({ state_tree: stateDoc.state_tree, id: req.result });
 				req.onerror = () => reject(new Error('Error adding document'));
 			});
 		},
 
-		query: queryFunc,
+		query: async ({ collectionName, query }) => {
+			const store = await openStore(collectionName, 'readonly');
+			return new Promise((resolve, reject) => {
+				const cursorReq = store.openCursor();
+				cursorReq.onsuccess = (e) => {
+					const cursor = e.target.result;
+					if (!cursor) return resolve(false);
+					const matches = Object.keys(query).every(
+						(key) => cursor.value.state_json && cursor.value.state_json[key] === query[key]
+					);
+					if (matches) {
+						resolve({ state_tree: cursor.value.state_tree, id: cursor.value._id });
+					} else {
+						cursor.continue();
+					}
+				};
+				cursorReq.onerror = () => reject(new Error('Error finding document'));
+			});
+		},
 
-		update: async (collectionName, id, state) => {
+		update: async ({ collectionName, id, stateDoc }) => {
 			const store = await openStore(collectionName);
-			const updatedDoc = { _id: id, ...createStateDoc(state) };
+			const updatedDoc = { _id: id, ...stateDoc };
 			return new Promise((resolve, reject) => {
 				const req = store.put(updatedDoc);
 				req.onsuccess = () => resolve(req.result);
@@ -133,18 +129,16 @@ export default async (createStateDoc, { test = false }) => {
 			});
 		},
 
-		remove: async (collectionName, query) => {
-			const doc = await queryFunc(collectionName, query);
-			if (!doc) return false;
+		remove: async ({ collectionName, id }) => {
 			const store = await openStore(collectionName);
 			return new Promise((resolve, reject) => {
-				const deleteReq = store.delete(doc.id);
+				const deleteReq = store.delete(id);
 				deleteReq.onsuccess = () => resolve(true);
 				deleteReq.onerror = () => reject(new Error('Error deleting document'));
 			});
 		},
 
-		transformQuery: (query) =>
+		transformQuery: ({ query }) =>
 			Object.fromEntries(Object.keys(query).map((k) => [k, query[k]])),
 
 		close: () => {

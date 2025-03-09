@@ -22,7 +22,7 @@ Each driver has a set of functions:
 import { parse, stringify } from './clone.js';
 import { validateData } from './validation.js';
 
-import { OObject } from 'destam';
+import { OArray, OObject, Observer } from 'destam';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
@@ -52,6 +52,18 @@ let drivers = [
  * @returns {Object} The document containing a state tree and its simplified JSON version used for querying.
  */
 const createStateDoc = (value) => {
+	// if (!(value instanceof Observer)) value = OObjectv(value);
+
+	// console.log("THIS IS A PROPER OOBJECT: ", (OObject({ test: 'test' }) instanceof OObject));
+
+	// console.log("THIS IS Observer: ", (value instanceof Observer));
+	// console.log("THIS IS OObject: ", (value instanceof OObject));
+
+	// console.log("CREATESTATEDOC: ", stringify(value));
+	// console.log("ANOTHER TEST: ", stringify(OObject({
+	// 	test: 'test',
+	// 	another: OArray(['test'])
+	// })));
 	return {
 		state_tree: JSON.parse(stringify(value)),
 		state_json: JSON.parse(JSON.stringify(value))
@@ -92,10 +104,9 @@ export const initODB = async (props = { test: false }) => {
 			}
 
 			if (module && module.default) {
-				let driverInstance = module.default(
-					createStateDoc, // ideally we don't even have to pass in createStateDoc and that is just called in ODB itself.
-					props
-				);
+				let driverInstance = module.default({
+					...props
+				});
 
 				if (driverInstance instanceof Promise) {
 					driverInstance = await driverInstance;
@@ -161,23 +172,30 @@ export const closeODB = async (props) => {
  * @returns {Promise<Object|boolean>} Returns the state object if successful, or false if validation fails.
  * @throws {Error} Throws an error if validation fails.
  */
-export const ODB = async (driver, collection, query, value = null, props) => {
+export const ODB = async ({ driver, collection, query = {}, value = null }) => {
 	driver = drivers[driver];
 
 	try {
-		await validateData(collection, value);
+		await validateData({ collection, data: value });
 	} catch (error) {
 		console.error(error.message);
 		return false;
 	}
 
-	if (driver.transformQuery) query = driver.transformQuery(query);
+	if (driver.transformQuery && query) query = driver.transformQuery({ query });
 
 	let doc;
+
 	if (Object.keys(query).length === 0) { // No query, create doc
-		doc = await driver.create(collection, value);
+		doc = await driver.create({
+			collectionName: collection,
+			stateDoc: createStateDoc(value)
+		});
 	} else { // yes query, fetch doc
-		doc = await driver.query(collection, query);
+		doc = await driver.query({
+			collectionName: collection,
+			query
+		});
 
 		if (!doc) { // no query result found
 			if (!value) {
@@ -185,7 +203,10 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 				return false;
 			}
 			// if no query results but value, create doc from value:
-			doc = await driver.create(collection, value);
+			doc = await driver.create({
+				collectionName: collection,
+				value: createStateDoc(value)
+			});
 		}
 	}
 
@@ -199,6 +220,33 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 		throw new Error("Driver returned invalid doc: 'id' property is missing.");
 	}
 	if (!doc.state_tree.OBJECT_TYPE || !doc.state_tree.id || !doc.state_tree.vals) {
+		/*
+		Error: Driver returned invalid doc: 'state_tree' is missing one or more required fields (OBJECT_TYPE, id, vals).
+			at ODB (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/destam-db-core/odb.js:202:9)
+			at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
+			at async Object.init (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/server/jobs/enter.js:29:34)
+			at async WebSocket.<anonymous> (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/server/coreServer.js:147:32)
+
+
+		somehow document get's created like this:
+		{
+			"_id": {
+				"$oid": "67ccd032e5d8f1c02ee0ac7f"
+			},
+			"state_tree": {
+				"email": "",
+				"password": "$2a$10$HgZCHOeS3hPLzz5tlOrKO.KckrjzUaSGBu4LiETfz7aMT7yZ92982",
+				"userID": "9adaf9c0-d6eb-490e-88cf-a8543d8bbe47",
+				"sessions": []
+			},
+			"state_json": {
+				"email": "",
+				"password": "$2a$10$HgZCHOeS3hPLzz5tlOrKO.KckrjzUaSGBu4LiETfz7aMT7yZ92982",
+				"userID": "9adaf9c0-d6eb-490e-88cf-a8543d8bbe47",
+				"sessions": []
+			}
+		}
+		*/
 		throw new Error(
 			"Driver returned invalid doc: 'state_tree' is missing one or more required fields (OBJECT_TYPE, id, vals)."
 		);
@@ -214,8 +262,12 @@ export const ODB = async (driver, collection, query, value = null, props) => {
 
 	watchers.push(state.observer.watch(async () => {
 		try {
-			await validateData(collection, state);
-			await driver.update(collection, doc.id, state, props);
+			await validateData({ collection, data: state });
+			await driver.update({
+				collectionName: collection,
+				id: doc.id,
+				stateDoc: createStateDoc(state)
+			});
 		} catch (error) {
 			console.error(error.message);
 		}
@@ -233,15 +285,15 @@ export const ODB = async (driver, collection, query, value = null, props) => {
  * @returns {Promise<boolean>} Returns true if the document was successfully deleted, otherwise false.
  * @throws {Error} Throws an error if the deletion process fails.
  */
-ODB.remove = async (driver, collection, query) => {
+ODB.remove = async ({ driver, collection, query }) => {
 	driver = drivers[driver];
 
-	if (driver.transformQuery) query = driver.transformQuery(query);
+	if (driver.transformQuery) query = driver.transformQuery({ query });
 
 	try {
-		const result = await driver.query(collection, query);
+		const result = await driver.query({ collectionName: collection, query });
 
-		if (result) return await driver.remove(collection, result.id);
+		if (result) return await driver.remove({ collectionName: collection, id: result.id });
 		else return false; // Requested document not found:
 	} catch (error) {
 		console.error(error.message);
