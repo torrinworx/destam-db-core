@@ -22,7 +22,7 @@ Each driver has a set of functions:
 import { parse, stringify } from './clone.js';
 import { validateData } from './validation.js';
 
-import { OArray, OObject, Observer } from 'destam';
+import { OObject } from 'destam';
 
 const watchers = [];
 const isClient = typeof window !== 'undefined';
@@ -52,18 +52,10 @@ let drivers = [
  * @returns {Object} The document containing a state tree and its simplified JSON version used for querying.
  */
 const createStateDoc = (value) => {
-	// if (!(value instanceof Observer)) value = OObjectv(value);
+	if (value && (!value instanceof OObject) && typeof value === 'object') {
+		throw new Error('Error: value appears to be of type "Object", ignore if this is intentional, but this could mean you have two different versions of destam installed and the OObject class is not getting recognized properly, if this is the case the state tree will not be properly built.')
+	}
 
-	// console.log("THIS IS A PROPER OOBJECT: ", (OObject({ test: 'test' }) instanceof OObject));
-
-	// console.log("THIS IS Observer: ", (value instanceof Observer));
-	// console.log("THIS IS OObject: ", (value instanceof OObject));
-
-	// console.log("CREATESTATEDOC: ", stringify(value));
-	// console.log("ANOTHER TEST: ", stringify(OObject({
-	// 	test: 'test',
-	// 	another: OArray(['test'])
-	// })));
 	return {
 		state_tree: JSON.parse(stringify(value)),
 		state_json: JSON.parse(JSON.stringify(value))
@@ -220,33 +212,6 @@ export const ODB = async ({ driver, collection, query = {}, value = null }) => {
 		throw new Error("Driver returned invalid doc: 'id' property is missing.");
 	}
 	if (!doc.state_tree.OBJECT_TYPE || !doc.state_tree.id || !doc.state_tree.vals) {
-		/*
-		Error: Driver returned invalid doc: 'state_tree' is missing one or more required fields (OBJECT_TYPE, id, vals).
-			at ODB (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/destam-db-core/odb.js:202:9)
-			at process.processTicksAndRejections (node:internal/process/task_queues:105:5)
-			at async Object.init (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/server/jobs/enter.js:29:34)
-			at async WebSocket.<anonymous> (file:///home/torrin/Repos/Personal/OpenGig.org/destam-web-core/server/coreServer.js:147:32)
-
-
-		somehow document get's created like this:
-		{
-			"_id": {
-				"$oid": "67ccd032e5d8f1c02ee0ac7f"
-			},
-			"state_tree": {
-				"email": "",
-				"password": "$2a$10$HgZCHOeS3hPLzz5tlOrKO.KckrjzUaSGBu4LiETfz7aMT7yZ92982",
-				"userID": "9adaf9c0-d6eb-490e-88cf-a8543d8bbe47",
-				"sessions": []
-			},
-			"state_json": {
-				"email": "",
-				"password": "$2a$10$HgZCHOeS3hPLzz5tlOrKO.KckrjzUaSGBu4LiETfz7aMT7yZ92982",
-				"userID": "9adaf9c0-d6eb-490e-88cf-a8543d8bbe47",
-				"sessions": []
-			}
-		}
-		*/
 		throw new Error(
 			"Driver returned invalid doc: 'state_tree' is missing one or more required fields (OBJECT_TYPE, id, vals)."
 		);
