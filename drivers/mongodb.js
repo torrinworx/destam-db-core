@@ -56,31 +56,28 @@ export default async ({ test = false }) => {
     }
 
     return {
-        create: async ({ collectionName, stateDoc }) => {
-            const collection = db.collection(collectionName);
-            const result = await collection.insertOne(stateDoc);
+        create: async ({ collection, stateDoc }) => {
+            const result = await db.collection(collection).insertOne(stateDoc);
             return { state_tree: stateDoc.state_tree, id: result.insertedId }
         },
 
-        query: async ({ collectionName, query }) => {
-            const collection = db.collection(collectionName);
-            const result = await collection.findOne(query);
+        query: async ({ collection, query }) => {
+            const result = await db.collection(collection).findOne(query);
             if (!result) return false
             else return { state_tree: result.state_tree, id: result._id }
         },
 
-        update: async ({ collectionName, id, stateDoc }) => {
-            const collection = db.collection(collectionName);
-            const result = await collection.updateOne(
+        update: async ({ collection, id, stateDoc }) => {
+            const result = await db.collection(collection).updateOne(
                 { _id: id },
                 { $set: stateDoc }
             );
             return result;
         },
 
-        remove: async ({ collectionName, id }) => {
+        remove: async ({ collection, id }) => {
             try {
-                const result = await db.collection(collectionName).deleteOne({ _id: id });
+                const result = await db.collection(collection).deleteOne({ _id: id });
                 // result.deletedCount will tell us if a document was actually deleted
                 return result.deletedCount > 0;
             } catch (error) {

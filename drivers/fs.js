@@ -22,8 +22,8 @@ export default async ({ test = false, baseDir } = {}) => {
         }
     };
 
-    const getCollectionPath = async (collectionName) => {
-        const collectionPath = join(rootDir, collectionName);
+    const getCollectionPath = async (collection) => {
+        const collectionPath = join(rootDir, collection);
         await ensureDir(collectionPath);
         return collectionPath;
     };
@@ -47,8 +47,8 @@ export default async ({ test = false, baseDir } = {}) => {
     };
 
     return {
-        create: async ({ collectionName, stateDoc }) => {
-            const collectionPath = await getCollectionPath(collectionName);
+        create: async ({ collection, stateDoc }) => {
+            const collectionPath = await getCollectionPath(collection);
             // Assign an ID
             const newId = randomUUID();
             stateDoc.id = newId;
@@ -58,8 +58,8 @@ export default async ({ test = false, baseDir } = {}) => {
             return { state_tree: stateDoc.state_tree, id: stateDoc.id };
         },
 
-        query: async ({ collectionName, query }) => {
-            const collectionPath = await getCollectionPath(collectionName);
+        query: async ({ collection, query }) => {
+            const collectionPath = await getCollectionPath(collection);
 
             let fileNames;
             try {
@@ -96,8 +96,8 @@ export default async ({ test = false, baseDir } = {}) => {
             return false;
         },
 
-        update: async ({ collectionName, id, stateDoc }) => {
-            const collectionPath = await getCollectionPath(collectionName);
+        update: async ({ collection, id, stateDoc }) => {
+            const collectionPath = await getCollectionPath(collection);
             const doc = await readDocFile(collectionPath, id);
             if (!doc) {
                 return false;
@@ -109,8 +109,8 @@ export default async ({ test = false, baseDir } = {}) => {
             return stateDoc;
         },
 
-        remove: async ({ collectionName, id }) => {
-            const collectionPath = await getCollectionPath(collectionName);
+        remove: async ({ collection, id }) => {
+            const collectionPath = await getCollectionPath(collection);
             const docPath = join(collectionPath, `${id}.json`);
             try {
                 await fs.unlink(docPath);

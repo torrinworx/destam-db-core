@@ -188,12 +188,12 @@ export const ODB = async ({ driver, collection, query = {}, value = null }) => {
 
 	if (Object.keys(query).length === 0) { // No query, create doc
 		doc = await driver.create({
-			collectionName: collection,
+			collection,
 			stateDoc: createStateDoc(value)
 		});
 	} else { // yes query, fetch doc
 		doc = await driver.query({
-			collectionName: collection,
+			collection,
 			query
 		});
 
@@ -204,7 +204,7 @@ export const ODB = async ({ driver, collection, query = {}, value = null }) => {
 			}
 			// if no query results but value, create doc from value:
 			doc = await driver.create({
-				collectionName: collection,
+				collection,
 				value: createStateDoc(value)
 			});
 		}
@@ -264,7 +264,7 @@ export const ODB = async ({ driver, collection, query = {}, value = null }) => {
 		try {
 			await validateData({ collection, data: state });
 			await driver.update({
-				collectionName: collection,
+				collection,
 				id: doc.id,
 				stateDoc: createStateDoc(state)
 			});
@@ -291,9 +291,9 @@ ODB.remove = async ({ driver, collection, query }) => {
 	if (driver.transformQuery) query = driver.transformQuery({ query });
 
 	try {
-		const result = await driver.query({ collectionName: collection, query });
+		const result = await driver.query({ collection, query });
 
-		if (result) return await driver.remove({ collectionName: collection, id: result.id });
+		if (result) return await driver.remove({ collection, id: result.id });
 		else return false; // Requested document not found:
 	} catch (error) {
 		console.error(error.message);

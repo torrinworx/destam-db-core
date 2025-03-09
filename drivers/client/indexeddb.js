@@ -8,7 +8,7 @@ let isBootstrapped = false;
  * Internally opens the database at the given version and ensures
  * that all knownStores exist. Also sets cachedDB and currentDBVersion.
  */
-const _openDB = (collectionName, version, mode) =>
+const _openDB = (collection, version, mode) =>
 	new Promise((resolve, reject) => {
 		const request = indexedDB.open(dbName, version);
 
@@ -21,9 +21,9 @@ const _openDB = (collectionName, version, mode) =>
 				}
 			});
 			// Also ensure we create the requested store
-			if (!db.objectStoreNames.contains(collectionName)) {
-				db.createObjectStore(collectionName, { keyPath: '_id', autoIncrement: true });
-				knownStores.add(collectionName);
+			if (!db.objectStoreNames.contains(collection)) {
+				db.createObjectStore(collection, { keyPath: '_id', autoIncrement: true });
+				knownStores.add(collection);
 			}
 		};
 
@@ -33,8 +33,8 @@ const _openDB = (collectionName, version, mode) =>
 			// Sync our in-memory version to the actual DB version
 			currentDBVersion = db.version;
 
-			const tx = db.transaction([collectionName], mode);
-			const store = tx.objectStore(collectionName);
+			const tx = db.transaction([collection], mode);
+			const store = tx.objectStore(collection);
 			resolve(store);
 		};
 
@@ -69,29 +69,29 @@ const bootstrapDB = async () => {
  * 2) If the cachedDB has this store, just open it.  
  * 3) Otherwise, close DB if it’s open, increment version, trigger an upgrade, create the store.
  */
-const openStore = async (collectionName, mode = 'readwrite') => {
+const openStore = async (collection, mode = 'readwrite') => {
 	await bootstrapDB();
 
 	if (cachedDB) {
-		if (cachedDB.objectStoreNames.contains(collectionName)) {
-			const tx = cachedDB.transaction([collectionName], mode);
-			return tx.objectStore(collectionName);
+		if (cachedDB.objectStoreNames.contains(collection)) {
+			const tx = cachedDB.transaction([collection], mode);
+			return tx.objectStore(collection);
 		}
 		cachedDB.close();
 		cachedDB = null;
 	}
 
-	knownStores.add(collectionName);
+	knownStores.add(collection);
 	currentDBVersion += 1;
-	return _openDB(collectionName, currentDBVersion, mode);
+	return _openDB(collection, currentDBVersion, mode);
 };
 
 export default async ({ test = false }) => {
 	if (test) await import(/* @vite-ignore */ 'fake-indexeddb/auto');
 
 	return {
-		create: async ({ collectionName, stateDoc }) => {
-			const store = await openStore(collectionName);
+		create: async ({ collection, stateDoc }) => {
+			const store = await openStore(collection);
 			return new Promise((resolve, reject) => {
 				const req = store.add(stateDoc);
 				req.onsuccess = () => resolve({ state_tree: stateDoc.state_tree, id: req.result });
@@ -99,8 +99,8 @@ export default async ({ test = false }) => {
 			});
 		},
 
-		query: async ({ collectionName, query }) => {
-			const store = await openStore(collectionName, 'readonly');
+		query: async ({ collection, query }) => {
+			const store = await openStore(collection, 'readonly');
 			return new Promise((resolve, reject) => {
 				const cursorReq = store.openCursor();
 				cursorReq.onsuccess = (e) => {
@@ -119,8 +119,8 @@ export default async ({ test = false }) => {
 			});
 		},
 
-		update: async ({ collectionName, id, stateDoc }) => {
-			const store = await openStore(collectionName);
+		update: async ({ collection, id, stateDoc }) => {
+			const store = await openStore(collection);
 			const updatedDoc = { _id: id, ...stateDoc };
 			return new Promise((resolve, reject) => {
 				const req = store.put(updatedDoc);
@@ -129,8 +129,8 @@ export default async ({ test = false }) => {
 			});
 		},
 
-		remove: async ({ collectionName, id }) => {
-			const store = await openStore(collectionName);
+		remove: async ({ collection, id }) => {
+			const store = await openStore(collection);
 			return new Promise((resolve, reject) => {
 				const deleteReq = store.delete(id);
 				deleteReq.onsuccess = () => resolve(true);
